@@ -1,4 +1,4 @@
-#include "funparsing.hpp"
+#include "wolfscript.hpp"
 
 #include <fstream>
 #include <sstream>

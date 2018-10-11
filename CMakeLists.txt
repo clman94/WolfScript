@@ -11,4 +11,4 @@ if (MSVC_VERSION GREATER_EQUAL "1900")
 	endif()
 endif()
 
-add_executable(FunLang main.cpp funparsing.hpp)
+add_executable(FunLang main.cpp wolfscript.hpp)
