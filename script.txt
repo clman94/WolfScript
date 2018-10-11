@@ -4,8 +4,8 @@
 
 print("Begin Test");
 
-var str = "eeey this is string";
-print(str.length());
+var str = "eeey";
+print(-23 * str.length() + 10);
 
 // Testing a application registered object
 print(myobj.x);
@@ -44,5 +44,3 @@ if (pie == 4) // eeyy
 	
 if ((pie = 3) == 3)
 	print(2);
-
-

@@ -1,4 +1,4 @@
-#include "wolfscript.hpp"
+#include "wolfscript/wolfscript.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -23,7 +23,7 @@ int main()
 
 	// Try catch commented out so the debugger can catch the exceptions instead
 	//try {
-	std::string code = load_file_as_string("./script.txt");
+	std::string code = load_file_as_string("../script.txt");
 
 	parser myparser;
 	auto ast = myparser.parse(tokenize(code));
@@ -67,7 +67,7 @@ int main()
 			auto obj = pArgs[0].get<const value_type::object>();
 			auto str = obj->members.find("__string")->second.get<const std::string>();
 			return *str;
-		} };
+		}};
 		obj.members["length"] = value_type::callable{
 			[](const value_type::arg_list& pArgs) -> value_type
 		{
