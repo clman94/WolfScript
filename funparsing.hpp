@@ -524,7 +524,8 @@ token tokenize_string(std::string_view& pView, text_position& pPosition)
 	for (; length < pView.length() && pView[length] != '\"'; length++);
 
 	token t;
-	t.text = pView.substr(1, length);
+	if (length > 0)
+		t.text = pView.substr(1, length - 2);
 	t.type = token_type::string;
 	t.start_position = pPosition;
 
@@ -1020,7 +1021,12 @@ private:
 
 	std::unique_ptr<AST_node> parse_multiplicative_expression()
 	{
-		return parse_binary_expression({ token_type::mul, token_type::div }, &parser::parse_function_call);
+		return parse_binary_expression({ token_type::mul, token_type::div }, &parser::parse_member_accessor);
+	}
+
+	std::unique_ptr<AST_node> parse_member_accessor()
+	{
+		return parse_binary_expression({ token_type::period }, &parser::parse_function_call);
 	}
 
 	std::unique_ptr<AST_node> parse_function_call()
@@ -1280,16 +1286,12 @@ type_flags& operator |= (type_flags& l, const type_flags& r)
 	return l = static_cast<type_flags>(static_cast<T>(l) | static_cast<T>(r));
 }
 
-
-class script_object;
-
 struct type_info
 {
 	bool is_const{ false };
 	bool is_reference{ false };
 	bool is_pointer{ false };
 	bool is_arithmetic{ false };
-	bool is_script_object{ false };
 	const std::type_info* stdtypeinfo{ &typeid(void) };
 
 	type_info() = default;
@@ -1297,13 +1299,11 @@ struct type_info
 		bool pIs_reference,
 		bool pIs_pointer,
 		bool pIs_arithmic,
-		bool pIs_script_object,
 		const std::type_info* pType) :
 		is_const(pIs_const),
 		is_reference(pIs_reference),
 		is_pointer(pIs_pointer),
 		is_arithmetic(pIs_arithmic),
-		is_script_object(pIs_script_object),
 		stdtypeinfo(pType)
 	{}
 	type_info(const type_info&) = default;
@@ -1324,7 +1324,6 @@ struct type_info
 			std::is_reference<T>::value,
 			std::is_pointer<T>::value,
 			std::is_arithmetic<std::decay_t<T>>::value,
-			std::is_same<std::decay_t<T>, script_object>::value,
 			&typeid(std::decay_t<T>)
 		);
 	}
@@ -1345,8 +1344,7 @@ public:
 
 	struct object
 	{
-		std::multimap<std::string, callable> methods;
-		std::map<std::string, value_type_class2> properties;
+		std::map<std::string, value_type_class2> members;
 	};
 
 	class cast_list
@@ -1538,7 +1536,14 @@ public:
 
 	std::string to_string() const
 	{
-		if (mData->mType_info.is_arithmetic)
+		if (*mData->mType_info.stdtypeinfo == typeid(object))
+		{
+			const object* obj = get<const object>();
+			auto f = obj->members.find("__to_string");
+			auto c = f->second.get<const callable>();
+			return *c->func({ *this }).get<const std::string>();
+		}
+		else if (mData->mType_info.is_arithmetic)
 		{
 			auto arithmeticvisit = [](const auto& pVal) -> std::string
 			{
@@ -1772,6 +1777,7 @@ class interpretor :
 {
 public:
 	typedef value_type_class2 value_type;
+	using string_factory = value_type;
 
 	void interpret(AST_node* mRoot)
 	{
@@ -1829,11 +1835,28 @@ private:
 
 	virtual void dispatch(AST_node_binary_op* pNode) override
 	{
-		value_type l = visit_for_value(pNode->children[0]);
-		value_type r = visit_for_value(pNode->children[1]);
-		if (!l.get_type_info().is_arithmetic || !r.get_type_info().is_arithmetic)
-			throw exception::interpretor_error("These types are not arithmic types");
-		mResult_value = value_type::binary_operation(pNode->type, l, r);
+		if (pNode->type == token_type::period)
+		{
+			value_type l = visit_for_value(pNode->children[0]);
+			AST_node_identifier* r_id
+				= dynamic_cast<AST_node_identifier*>(pNode->children[1].get());
+			// FIXME: Move this to the parse instead
+			if (!r_id)
+				throw exception::interpretor_error("Expected identifier");
+			value_type::object* obj = l.get<value_type::object>();
+			auto member = obj->members.find(std::string(r_id->identifier));
+			if (member == obj->members.end())
+				throw exception::interpretor_error("Could not find member");
+			mResult_value = member->second;
+		}
+		else
+		{
+			value_type l = visit_for_value(pNode->children[0]);
+			value_type r = visit_for_value(pNode->children[1]);
+			if (!l.get_type_info().is_arithmetic || !r.get_type_info().is_arithmetic)
+				throw exception::interpretor_error("These types are not arithmic types");
+			mResult_value = value_type::binary_operation(pNode->type, l, r);
+		}
 	}
 
 	virtual void dispatch(AST_node_constant* pNode) override

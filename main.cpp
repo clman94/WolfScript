@@ -39,8 +39,22 @@ int main()
 		std::cout << "print(" << pArgs[0].to_string() << ")\n";
 		return{};
 	};
-	
+
+	parser_fun::value_type_class2::object myobj;
+	myobj.members["x"] = 23;
+	myobj.members["y"] = 32;
+
+	parser_fun::value_type_class2::callable mytostring;
+	mytostring.func = [](const std::vector<parser_fun::value_type_class2>& pArgs) -> parser_fun::value_type_class2
+	{
+		auto obj = pArgs[0].get<parser_fun::value_type_class2::object>();
+		return std::string("(" + obj->members["x"].to_string() + ", "
+			+ obj->members["y"].to_string() + ")");
+	};
+	myobj.members["__to_string"] = mytostring;
+
 	parser_fun::interpretor interp;
+	interp["myobj"] = std::ref(myobj);
 	interp["print"] = std::cref(myprint);
 	interp["pie"] = &pie;
 	interp["pie"] = interp["pie"] + interp["pie"];
