@@ -277,8 +277,8 @@ enum class token_type
 
 	identifier,
 
-	l_paranthesis,
-	r_paranthesis,
+	l_parenthesis,
+	r_parenthesis,
 
 	l_brace,
 	r_brace,
@@ -637,9 +637,9 @@ token_array tokenize(std::string_view pView)
 		else if (c == '>')
 			result.push_back(tokenize_char(pView, current_position, token_type::greater_than));
 		else if (c == '(')
-			result.push_back(tokenize_char(pView, current_position, token_type::l_paranthesis));
+			result.push_back(tokenize_char(pView, current_position, token_type::l_parenthesis));
 		else if (c == ')')
-			result.push_back(tokenize_char(pView, current_position, token_type::r_paranthesis));
+			result.push_back(tokenize_char(pView, current_position, token_type::r_parenthesis));
 		else if (c == '+')
 			result.push_back(tokenize_char(pView, current_position, token_type::add));
 		else if (c == '-')
@@ -878,14 +878,14 @@ private:
 		auto node = std::make_unique<AST_node_if>();
 
 		advance(); // Skip if
-		expect(token_type::l_paranthesis, "Expected ( for if statement conditional expression");
+		expect(token_type::l_parenthesis, "Expected ( for if statement conditional expression");
 		advance(); // Skip (
-		if (mIter->type == token_type::r_paranthesis)
+		if (mIter->type == token_type::r_parenthesis)
 			throw exception::parse_error("Missing if statement conditional expression", *mIter);
 
 		node->children.emplace_back(parse_expression());
 
-		expect(token_type::r_paranthesis, "Expected )");
+		expect(token_type::r_parenthesis, "Expected )");
 		advance(); // Skip )
 
 		node->children.emplace_back(parse_statement());
@@ -895,14 +895,14 @@ private:
 			&& peek()->type == token_type::kw_if)
 		{
 			advance(2); // Skip else if
-			expect(token_type::l_paranthesis, "Expected ( for else if statement conditional expression");
+			expect(token_type::l_parenthesis, "Expected ( for else if statement conditional expression");
 			advance(); // Skip (
-			if (mIter->type == token_type::r_paranthesis)
+			if (mIter->type == token_type::r_parenthesis)
 				throw exception::parse_error("Missing if statement conditional expression", *mIter);
 
 			node->children.emplace_back(parse_expression());
 
-			expect(token_type::r_paranthesis, "Expected )");
+			expect(token_type::r_parenthesis, "Expected )");
 			advance(); // Skip )
 
 			node->children.emplace_back(parse_statement());
@@ -923,9 +923,9 @@ private:
 	std::unique_ptr<AST_node> parse_for_statement()
 	{
 		advance(); // Skip for
-		expect(token_type::l_paranthesis, "Expected ( for 'for' statement");
+		expect(token_type::l_parenthesis, "Expected ( for 'for' statement");
 		advance(); // Skip (
-		if (mIter->type == token_type::r_paranthesis)
+		if (mIter->type == token_type::r_parenthesis)
 			throw exception::parse_error("Missing 'for' statement expression", *mIter);
 
 		// First segment
@@ -951,11 +951,11 @@ private:
 		}
 
 		// Third segment
-		if (mIter->type != token_type::r_paranthesis)
+		if (mIter->type != token_type::r_parenthesis)
 		{
 			auto third_node = parse_expression();
 
-			expect(token_type::r_paranthesis, "Expected ;");
+			expect(token_type::r_parenthesis, "Expected ;");
 			advance(); // Skip ;
 		}
 		
@@ -1054,14 +1054,14 @@ private:
 	std::unique_ptr<AST_node> parse_function_call()
 	{
 		auto factor = parse_member_accessor();
-		if (mIter->type == token_type::l_paranthesis)
+		if (mIter->type == token_type::l_parenthesis)
 		{
 			auto node = std::make_unique<AST_node_function_call>();
 			node->children.emplace_back(std::move(factor));
 			advance(); // Skip (
 
 			// No arguments
-			if (mIter->type == token_type::r_paranthesis)
+			if (mIter->type == token_type::r_parenthesis)
 			{
 				advance(); // Skip )
 				return node;
@@ -1076,7 +1076,7 @@ private:
 				node->children.emplace_back(parse_expression());
 			}
 
-			expect(token_type::r_paranthesis, "Expected )");
+			expect(token_type::r_parenthesis, "Expected )");
 			advance(); // Skip )
 
 			return node;
@@ -1102,11 +1102,11 @@ private:
 			node->children.emplace_back(parse_factor());
 			return node;
 		}
-		else if (mIter->type == token_type::l_paranthesis)
+		else if (mIter->type == token_type::l_parenthesis)
 		{
 			advance(); // Skip (
 			auto node = parse_expression();
-			expect(token_type::r_paranthesis, "Expected )");
+			expect(token_type::r_parenthesis, "Expected )");
 			advance(); // Skip )
 			return node;
 		}
@@ -1145,9 +1145,9 @@ private:
 			node->identifier = mIter->text;
 			advance(); // Skip identifier
 		}
-		expect(token_type::l_paranthesis, "Expected (");
+		expect(token_type::l_parenthesis, "Expected (");
 		advance(); // Skip (
-		if (mIter->type != token_type::r_paranthesis)
+		if (mIter->type != token_type::r_parenthesis)
 		{
 			expect(token_type::identifier, "Expected identifier for parameter");
 			node->parameters.push_back(mIter->text);
@@ -1160,7 +1160,7 @@ private:
 				advance(); // Skip identifier
 			}
 		}
-		expect(token_type::r_paranthesis, "Expected ) for function");
+		expect(token_type::r_parenthesis, "Expected ) for function");
 		advance(); // Skip )
 		expect(token_type::l_brace, "Expected { for function");
 		node->children.emplace_back(parse_compound_statement());
