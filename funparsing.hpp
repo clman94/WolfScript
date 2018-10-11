@@ -17,7 +17,7 @@
 
 #define STRINGIFY(A) #A
 
-namespace parser_fun
+namespace wolfscript
 {
 
 /*
@@ -346,7 +346,7 @@ struct token
 {
 	token_type type;
 	std::string_view text;
-	std::variant<int, float> value;
+	std::variant<int, float, std::string> value;
 	text_position start_position;
 
 	token() :
@@ -520,18 +520,41 @@ token tokenize_char(std::string_view& pView, text_position& pPosition, token_typ
 
 token tokenize_string(std::string_view& pView, text_position& pPosition)
 {
+	pView.remove_prefix(1); // Skip "
+	std::string result;
 	int length = 0;
-	for (; length < pView.length() && pView[length] != '\"'; length++);
+	for (; length < pView.length() && pView[length] != '\"'; length++)
+	{
+		// Parse escape sequence
+		if (pView[length] == '\\')
+		{
+			// There should be room for one more character
+			if (pView.length() - length < 2)
+				throw exception::tokenization_error("Escape sequence at end of file", pPosition);
+			++length; // Skip '\'
+			switch (pView[length])
+			{
+			case 'n': result += '\n'; break;
+			case 't': result += '\t'; break;
+				// TODO: Add the rest of these escape sequences
+			default:
+				throw exception::tokenization_error("Invalid escape sequence", pPosition);
+			}
+		}
+		else if (pView[length] != '\"')
+			result += pView[length];
+	}
 
 	token t;
 	if (length > 0)
-		t.text = pView.substr(1, length - 2);
+		t.text = pView.substr(0, length - 1);
 	t.type = token_type::string;
 	t.start_position = pPosition;
+	t.value = std::move(result);
 
-	pPosition.column += length;
+	pPosition.column += length + 1;
 
-	pView.remove_prefix(length);
+	pView.remove_prefix(length + 1);
 	return t;
 }
 
@@ -635,6 +658,8 @@ token_array tokenize(std::string_view pView)
 			result.push_back(tokenize_char(pView, current_position, token_type::r_brace));
 		else if (c == '.')
 			result.push_back(tokenize_char(pView, current_position, token_type::period));
+		else if (c == '\"')
+			result.push_back(tokenize_string(pView, current_position));
 		else
 			throw exception::tokenization_error("Unknown character", current_position);
 		pView = trim_whitespace_prefix(pView, current_position);
@@ -893,7 +918,6 @@ private:
 		return node;
 	}
 
-
 	std::unique_ptr<AST_node> parse_for_statement()
 	{
 		advance(); // Skip for
@@ -1021,17 +1045,13 @@ private:
 
 	std::unique_ptr<AST_node> parse_multiplicative_expression()
 	{
-		return parse_binary_expression({ token_type::mul, token_type::div }, &parser::parse_member_accessor);
+		return parse_binary_expression({ token_type::mul, token_type::div }, &parser::parse_function_call);
 	}
 
-	std::unique_ptr<AST_node> parse_member_accessor()
-	{
-		return parse_binary_expression({ token_type::period }, &parser::parse_function_call);
-	}
 
 	std::unique_ptr<AST_node> parse_function_call()
 	{
-		auto factor = parse_factor();
+		auto factor = parse_member_accessor();
 		if (mIter->type == token_type::l_paranthesis)
 		{
 			auto node = std::make_unique<AST_node_function_call>();
@@ -1063,6 +1083,11 @@ private:
 			return factor;
 	}
 
+	std::unique_ptr<AST_node> parse_member_accessor()
+	{
+		return parse_binary_expression({ token_type::period }, &parser::parse_factor);
+	}
+
 	std::unique_ptr<AST_node> parse_factor()
 	{
 		if (mIter->type == token_type::add
@@ -1083,7 +1108,8 @@ private:
 			advance(); // Skip )
 			return node;
 		}
-		else if (mIter->type == token_type::integer)
+		else if (mIter->type == token_type::integer ||
+			mIter->type == token_type::string)
 		{
 			auto node = std::make_unique<AST_node_constant>();
 			node->related_token = *mIter;
@@ -1329,22 +1355,30 @@ struct type_info
 	}
 };
 
+class class_descriptor
+{
+public:
+
+};
+
 
 // A pretty large class the represents the entire type system
 // of this scripting language.
-class value_type_class2
+class value_type
 {
 public:
-	using cast_function = std::function<value_type_class2(type_info, value_type_class2)>;
+	using cast_function = std::function<value_type(type_info, value_type)>;
+	using arg_list = std::vector<value_type>;
 	struct callable
 	{
 		// For methods, the first parameter is the object
-		std::function<value_type_class2(const std::vector<value_type_class2>&)> func;
+		std::function<value_type(const arg_list&)> func;
 	};
 
 	struct object
 	{
-		std::map<std::string, value_type_class2> members;
+		
+		std::map<std::string, value_type> members;
 	};
 
 	class cast_list
@@ -1375,12 +1409,12 @@ public:
 			return {};
 		}
 
-		value_type_class2 cast(const type_info& pTo, const value_type_class2& pFrom) const
+		value_type cast(const type_info& pTo, const value_type& pFrom) const
 		{
 			// Automatically cast arithmetic types
 			if (pTo.is_arithmetic && pFrom.mData->mType_info.is_arithmetic)
 			{
-				auto visit = [&pTo](auto& pLtype)->value_type_class2
+				auto visit = [&pTo](auto& pLtype)->value_type
 				{
 					if (*pTo.stdtypeinfo == typeid(bool))
 						return static_cast<bool>(pLtype);
@@ -1501,24 +1535,24 @@ private:
 	};
 
 public:
-	value_type_class2()
+	value_type()
 	{
 		mData = std::make_shared<data>();
 	}
 
-	value_type_class2(const value_type_class2& pCopy) = default;
-	value_type_class2(value_type_class2&& pCopy) = default;
+	value_type(const value_type& pCopy) = default;
+	value_type(value_type&& pCopy) = default;
 
-	template <typename T, typename = std::enable_if<!std::is_same<std::decay_t<T>, value_type_class2>::value>::type>
-	value_type_class2(T&& pValue)
+	template <typename T, typename = std::enable_if<!std::is_same<std::decay_t<T>, value_type>::value>::type>
+	value_type(T&& pValue)
 	{
 		mData = std::make_shared<data>(std::forward<T>(pValue));
 	}
 
 	template <typename T>
-	static value_type_class2 create_const(const T&& pValue)
+	static value_type create_const(const T&& pValue)
 	{
-		value_type_class2 result(std::forward<std::add_const_t<T>>(pValue));
+		value_type result(std::forward<std::add_const_t<T>>(pValue));
 		result.mData->mType_info.is_const = true;
 		return result;
 	}
@@ -1528,7 +1562,7 @@ public:
 		return mData->mType_info;
 	}
 
-	value_type_class2& operator=(value_type_class2 pCopy)
+	value_type& operator=(value_type pCopy)
 	{
 		std::swap(mData, pCopy.mData);
 		return *this;
@@ -1554,32 +1588,32 @@ public:
 		return{};
 	}
 
-	value_type_class2 operator+(const value_type_class2& pR) const
+	value_type operator+(const value_type& pR) const
 	{
 		return binary_operation(token_type::add, *this, pR);
 	}
 
-	value_type_class2 operator-(const value_type_class2& pR) const
+	value_type operator-(const value_type& pR) const
 	{
 		return binary_operation(token_type::sub, *this, pR);
 	}
 
-	value_type_class2 operator*(const value_type_class2& pR) const
+	value_type operator*(const value_type& pR) const
 	{
 		return binary_operation(token_type::mul, *this, pR);
 	}
 
-	value_type_class2 operator/(const value_type_class2& pR) const
+	value_type operator/(const value_type& pR) const
 	{
 		return binary_operation(token_type::div, *this, pR);
 	}
 
-	bool operator==(const value_type_class2& pR) const
+	bool operator==(const value_type& pR) const
 	{
 		return *binary_operation(token_type::equ, *this, pR).get<const bool>();
 	}
 
-	value_type_class2 operator()(const std::initializer_list<value_type_class2>& pList)
+	value_type operator()(const std::initializer_list<value_type>& pList)
 	{
 
 	}
@@ -1588,9 +1622,9 @@ public:
 	T* get() const
 	{
 		if (!mData->has_type<T>())
-			throw exception::interpretor_error("Cannot cast value");
+			return nullptr;
 		if (!std::is_const<T>::value && mData->mType_info.is_const)
-			throw exception::interpretor_error("Cannot cast const to non-const");
+			return nullptr;
 		if constexpr (std::is_const<T>::value)
 			return static_cast<const T*>(mData->mPtr_c);
 		else
@@ -1604,7 +1638,8 @@ public:
 	}
 
 public:
-	static value_type_class2 binary_operation(token_type pOp, const value_type_class2& pL, const value_type_class2& pR)
+
+	static value_type binary_operation(token_type pOp, const value_type& pL, const value_type& pR)
 	{
 		bool l_is_arithmetic = pL.mData->mType_info.is_arithmetic;
 		bool r_is_arithmetic = pR.mData->mType_info.is_arithmetic;
@@ -1624,17 +1659,28 @@ public:
 			};
 			return pL.mData->visit_arithmetic(lvisit);
 		}
-		else
+		else if (auto obj = pL.get<object>())
 		{
-
+			std::string op_name;
+			switch (pOp)
+			{
+			case token_type::assign: op_name = "__assign"; break;
+			default:
+				throw exception::interpretor_error("Unknown operation");
+			}
+			auto member_iter = obj->members.find(op_name);
+			if (member_iter == obj->members.end())
+				throw exception::interpretor_error("Cannot find operator overload for object");
+			auto member_callable = member_iter->second.get<const callable>();
+			member_callable->func({ pL, pR });
 		}
 	}
 
-	static value_type_class2 unary_operation(token_type pOp, const value_type_class2& pU)
+	static value_type unary_operation(token_type pOp, const value_type& pU)
 	{
 		if (pU.mData->mType_info.is_arithmetic)
 		{
-			auto lvisit = [pOp, &pU](const auto& pLtype) -> value_type_class2
+			auto lvisit = [pOp, &pU](const auto& pLtype) -> value_type
 			{
 				typedef decltype(pLtype) ltype_t;
 				if constexpr (!std::is_unsigned<std::decay<ltype_t>::type>::value)
@@ -1659,7 +1705,7 @@ public:
 
 private:
 	template<typename Tl, typename Tr>
-	static value_type_class2 arithmetic_binary_operation_impl(token_type pOp, const value_type_class2& pL, Tl& pLval, Tr& pRval)
+	static value_type arithmetic_binary_operation_impl(token_type pOp, const value_type& pL, Tl& pLval, Tr& pRval)
 	{
 		constexpr bool l_is_bool = std::is_same<std::decay_t<Tl>, bool>::value;
 		constexpr bool r_is_bool = std::is_same<std::decay_t<Tr>, bool>::value;
@@ -1672,6 +1718,8 @@ private:
 		case token_type::not_equ: return pLval != r_casted; break;
 		}
 
+		// These operations are not allowed for bool.
+		// TODO: Add helpful error messages for these (probably when the semantic analyzer is implemented).
 		if constexpr (!l_is_bool && !r_is_bool)
 		{
 			switch (pOp)
@@ -1735,12 +1783,12 @@ public:
 		mScope_stack.pop_front();
 	}
 
-	value_type_class2& add(const std::string& pName, const value_type_class2& pValue)
+	value_type& add(const std::string& pName, const value_type& pValue)
 	{
 		return mScope_stack.front()[pName] = pValue;
 	}
 
-	value_type_class2* lookup(const std::string& pName)
+	value_type* lookup(const std::string& pName)
 	{
 		for (auto& i : mScope_stack)
 		{
@@ -1759,16 +1807,16 @@ public:
 		return false;
 	}
 
-	value_type_class2& operator[](const std::string& pName)
+	value_type& operator[](const std::string& pName)
 	{
 		if (auto found = lookup(pName))
 			return *found;
 		else
-			return add(pName, value_type_class2{});
+			return add(pName, value_type{});
 	}
 
 private:
-	typedef std::map<std::string, value_type_class2> scope_t;
+	typedef std::map<std::string, value_type> scope_t;
 	std::list<scope_t> mScope_stack;
 };
 
@@ -1776,8 +1824,7 @@ class interpretor :
 	private AST_visitor
 {
 public:
-	typedef value_type_class2 value_type;
-	using string_factory = value_type;
+	using string_factory = std::function<value_type(const std::string&)>;
 
 	void interpret(AST_node* mRoot)
 	{
@@ -1788,6 +1835,11 @@ public:
 	value_type& operator[](const std::string& pIdentifier)
 	{
 		return mSymbols[pIdentifier];
+	}
+
+	void set_string_factory(string_factory pFactory)
+	{
+		mString_factory = pFactory;
 	}
 
 private:
@@ -1838,16 +1890,40 @@ private:
 		if (pNode->type == token_type::period)
 		{
 			value_type l = visit_for_value(pNode->children[0]);
+
+			// Cast the r to an identifier node. 
+			// FIXME: Move this to the parser instead
 			AST_node_identifier* r_id
 				= dynamic_cast<AST_node_identifier*>(pNode->children[1].get());
-			// FIXME: Move this to the parse instead
 			if (!r_id)
 				throw exception::interpretor_error("Expected identifier");
-			value_type::object* obj = l.get<value_type::object>();
+
+			auto obj = l.get<const value_type::object>();
+
+			// Find the member object and return it
 			auto member = obj->members.find(std::string(r_id->identifier));
 			if (member == obj->members.end())
 				throw exception::interpretor_error("Could not find member");
-			mResult_value = member->second;
+
+			// If it's a callable, create a delegate callable for calling the method of a specific instance
+			if (auto func = member->second.get<const value_type::callable>())
+			{
+				// The capture will keep the object alive during the lifetime of this return value 
+				mResult_value = value_type::callable{
+					[l, func](const value_type::arg_list& pArgs)->value_type
+				{
+					value_type::arg_list args;
+					args.push_back(l);
+					args.insert(args.end(), pArgs.begin(), pArgs.end());
+					return func->func(args);
+				}
+				};
+			}
+			else
+			{
+				// Return the reference to the member
+				mResult_value = member->second;
+			}
 		}
 		else
 		{
@@ -1861,8 +1937,17 @@ private:
 
 	virtual void dispatch(AST_node_constant* pNode) override
 	{
-		if (pNode->related_token.type == token_type::integer)
+		switch (pNode->related_token.type)
+		{
+		case token_type::integer:
 			mResult_value = value_type::create_const(std::forward<int>(std::get<int>(pNode->related_token.value)));
+			break;
+		case token_type::string:
+			mResult_value = value_type::create_const(mString_factory(std::get<std::string>(pNode->related_token.value)));
+			break;
+		default:
+			throw exception::interpretor_error("Unsupported constant type");
+		}
 		return;
 	}
 
@@ -1895,7 +1980,7 @@ private:
 			return;
 		}
 
-		// Else if
+		// ...Else if...
 		else if (pNode->elseif_count > 0)
 		{
 			for (std::size_t i = 0; i < pNode->elseif_count; i++)
@@ -1918,7 +2003,7 @@ private:
 	virtual void dispatch(AST_node_function_declaration* pNode) override
 	{
 		value_type::callable func;
-		func.func = [this, pNode](const std::vector<parser_fun::value_type_class2>& pArgs)->parser_fun::value_type_class2
+		func.func = [this, pNode](const std::vector<value_type>& pArgs)->value_type
 		{
 			if (pArgs.size() != pNode->parameters.size())
 				throw exception::interpretor_error("Invalid argument count");
@@ -1946,6 +2031,7 @@ private:
 
 private:
 	bool mReturn_request{ false };
+	string_factory mString_factory;
 	value_type mResult_value;
 	value_type::cast_list mCaster;
 	symbol_table mSymbols;
