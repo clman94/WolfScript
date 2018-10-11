@@ -152,7 +152,7 @@ function myfunction(refparam int ref, const crefparam int ref)
 	
 }
 
-A rough sketch of the language's grammer:
+A rough sketch of the language's grammer (Note: This may be out of data):
 
 <program> : <statement-list>
 
@@ -214,7 +214,9 @@ A rough sketch of the language's grammer:
 
 <additive-expression> : <multiplicative-expression> ( ('+' | '-') <multiplicative-expression> )*
 
-<multiplicative-expression> : <cast-expression> ( ('*' | '/') <cast-expression> )*
+<multiplicative-expression> : <member-accessor> ( ('*' | '/') <member-accessor> )*
+
+<member-accessor> : <cast-expression> ( '.' <cast-expression> )*
 
 <cast-expression> : <unary-expression>
                   | '(' <namespace-identifier> ')' <cast-expression>

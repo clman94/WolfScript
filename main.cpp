@@ -21,31 +21,19 @@ int main()
 {
 	using namespace wolfscript;
 
+	// Try catch commented out so the debugger can catch the exceptions instead
 	//try {
 	std::string code = load_file_as_string("./script.txt");
 
-	auto tokens = tokenize(code);
-
-	parser parser;
-
-	auto ast = parser.parse(tokens);
+	parser myparser;
+	auto ast = myparser.parse(tokenize(code));
 
 	AST_viewer viewer;
 	ast->visit(&viewer);
 
-	const int pie = 2;
-
-	value_type::callable myprint;
-	myprint.func = [](const std::vector<value_type>& pArgs) -> value_type
-	{
-		std::cout << "print(" << pArgs[0].to_string() << ")\n";
-		return{};
-	};
-
 	value_type::object myobj;
 	myobj.members["x"] = 23;
 	myobj.members["y"] = 32;
-
 	value_type::callable mytostring;
 	mytostring.func = [](const std::vector<value_type>& pArgs) -> value_type
 	{
@@ -54,7 +42,6 @@ int main()
 			+ obj->members["y"].to_string() + ")");
 	};
 	myobj.members["__to_string"] = mytostring;
-
 	value_type::callable myassign;
 	myassign.func = [](const std::vector<value_type>& pArgs) -> value_type
 	{
@@ -67,6 +54,9 @@ int main()
 	myobj.members["__assign"] = myassign;
 
 	interpretor interp;
+
+	// Register string factory
+	// This will generate the object to access and modify the string
 	interp.set_string_factory([](const std::string& pString) -> value_type
 	{
 		value_type::object obj;
@@ -88,9 +78,20 @@ int main()
 		return std::move(obj);
 	});
 	interp["myobj"] = std::ref(myobj);
+
+	// Register print function for testing
+	value_type::callable myprint;
+	myprint.func = [](const std::vector<value_type>& pArgs) -> value_type
+	{
+		std::cout << "print(" << pArgs[0].to_string() << ")\n";
+		return{};
+	};
 	interp["print"] = std::cref(myprint);
+
+	const int pie = 2;
 	interp["pie"] = &pie;
 	interp["pie"] = interp["pie"] + interp["pie"];
+
 	interp.interpret(ast.get());		
 	/*}
 	catch (exception::tokenization_error& e)
