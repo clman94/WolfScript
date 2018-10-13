@@ -87,6 +87,7 @@ struct AST_node_if :
 	AST_node_impl<AST_node_if>
 {
 	std::size_t elseif_count{ 0 };
+	// If true, the last child is the else statement
 	bool has_else{ false };
 };
 
@@ -545,7 +546,6 @@ struct interpretor_error :
 	{}
 };
 }
-
 
 // This visitor prints out the AST for debugging
 class AST_viewer :

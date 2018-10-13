@@ -9,39 +9,53 @@
 namespace wolfscript
 {
 
-enum class type_flags : uint32_t
+// These strings represent the names of the methods that
+// define special behavior of an object.
+namespace object_behavior
 {
-	none = 0,
-	constant = 1,
-	reference = 1 << 1,
-	pod = 1 << 2,
-	arithmic = 1 << 3,
-};
 
-type_flags operator | (const type_flags& l, const type_flags& r)
+constexpr const char* copy = "__copy";
+constexpr const char* to_string = "__to_string";
+
+constexpr const char* assign = "__assign";
+constexpr const char* sub_assign = "__sub_assign";
+constexpr const char* add_assign = "__add_assign";
+constexpr const char* mul_assign = "__mul_assign";
+constexpr const char* div_assign = "__div_assign";
+
+constexpr const char* add = "__add";
+constexpr const char* sub = "__sub";
+constexpr const char* mul = "__mul";
+constexpr const char* div = "__div";
+
+constexpr const char* from_token_type(token_type pType)
 {
-	using T = std::underlying_type<type_flags>::type;
-	return static_cast<type_flags>(static_cast<T>(l) | static_cast<T>(r));
+	switch (pType)
+	{
+	case token_type::assign: return assign;
+	case token_type::add: return add;
+	case token_type::sub: return sub;
+	case token_type::mul: return mul;
+	case token_type::div: return div;
+	}
+	return nullptr;
 }
 
-type_flags operator & (const type_flags& l, const type_flags& r)
-{
-	using T = std::underlying_type<type_flags>::type;
-	return static_cast<type_flags>(static_cast<T>(l) & static_cast<T>(r));
-}
-
-type_flags& operator |= (type_flags& l, const type_flags& r)
-{
-	using T = std::underlying_type<type_flags>::type;
-	return l = static_cast<type_flags>(static_cast<T>(l) | static_cast<T>(r));
 }
 
 struct type_info
 {
 	bool is_const{ false };
+
+	// Reference and pointer types passed to the value_type object
+	// will be passed around as non-owning references. If both are false,
+	// the script will create a shared_ptr around the value.
 	bool is_reference{ false };
 	bool is_pointer{ false };
+
+	// True when the type is an arithmetic (bool, int, float, etcetera...)
 	bool is_arithmetic{ false };
+	
 	const std::type_info* stdtypeinfo{ &typeid(void) };
 
 	type_info() = default;
@@ -79,12 +93,6 @@ struct type_info
 	}
 };
 
-class class_descriptor
-{
-public:
-
-};
-
 // A pretty large class the represents the entire type system
 // of this scripting language.
 class value_type
@@ -92,18 +100,24 @@ class value_type
 public:
 	using cast_function = std::function<value_type(type_info, value_type)>;
 	using arg_list = std::vector<value_type>;
+
+	// This type wraps a function type that can be called in-script
 	struct callable
 	{
-		// For methods, the first parameter is the object
-		std::function<value_type(const arg_list&)> func;
+		// For methods, the first parameter is the object.
+		// If accessed directly by the application, you need to provide
+		// the first parameter.
+		std::function<value_type(const arg_list&)> function;
 	};
 
+	// Object type for script objects
 	struct object
 	{
-
+		// Members are accessed through the period operator.
 		std::map<std::string, value_type> members;
 	};
 
+	// A list that represents the casting rules
 	class cast_list
 	{
 	public:
@@ -116,6 +130,7 @@ public:
 			mEntries.push_back(entry);
 		}
 
+		// Check if this list supports the casting of 2 types
 		bool can_cast(type_info pTo, type_info pFrom) const
 		{
 			if (pTo.is_arithmetic && pFrom.is_arithmetic)
@@ -123,6 +138,8 @@ public:
 			return static_cast<bool>(find(pTo, pFrom));
 		}
 
+		// Find a function that can cast the 2 types. If none are found,
+		// this function will return an empty function
 		cast_function find(type_info pTo, type_info pFrom) const
 		{
 			for (const auto& i : mEntries)
@@ -132,12 +149,13 @@ public:
 			return {};
 		}
 
+		// Cast 2 values. This will throw if there is no such cast.
 		value_type cast(const type_info& pTo, const value_type& pFrom) const
 		{
 			// Automatically cast arithmetic types
 			if (pTo.is_arithmetic && pFrom.mData->mType_info.is_arithmetic)
 			{
-				auto visit = [&pTo](auto& pLtype)->value_type
+				auto visit = [&pTo](auto& pLtype) -> value_type
 				{
 					if (*pTo.stdtypeinfo == typeid(bool))
 						return static_cast<bool>(pLtype);
@@ -192,9 +210,10 @@ private:
 				mPtr = nullptr;
 			mPtr_c = static_cast<const void*>(&pRef.get());
 			mData = std::any(pRef);
-			mType_info = type_info::create<T>();
+			mType_info = type_info::create<T&>();
 		}
 
+		// Store the pointer as a reference
 		template <typename T>
 		void set(T* pPtr)
 		{
@@ -204,9 +223,10 @@ private:
 			else
 				mPtr = nullptr;
 			mData = std::any(std::ref(*pPtr));
-			mType_info = type_info::create<T>();
+			mType_info = type_info::create<T*>();
 		}
 
+		// Create a unique copy of the value
 		template <typename T>
 		void set(T pCopy)
 		{
@@ -296,9 +316,9 @@ public:
 		if (*mData->mType_info.stdtypeinfo == typeid(object))
 		{
 			const object* obj = get<const object>();
-			auto f = obj->members.find("__to_string");
+			auto f = obj->members.find(object_behavior::to_string);
 			auto c = f->second.get<const callable>();
-			return *c->func({ *this }).get<const std::string>();
+			return *c->function({ *this }).get<const std::string>();
 		}
 		else if (mData->mType_info.is_arithmetic)
 		{
@@ -366,11 +386,11 @@ public:
 		if (auto obj = get<const object>())
 		{
 			// Use the copy overload to copy the value of the object
-			auto copy_overload = obj->members.find("__copy");
+			auto copy_overload = obj->members.find(object_behavior::copy);
 			if (copy_overload != obj->members.end())
 			{
 				auto func = copy_overload->second.get<const callable>();
-				return func->func({ *this });
+				return func->function({ *this });
 			}
 			else
 			{
@@ -402,6 +422,13 @@ public:
 		}
 	}
 
+	// Cast the value to a type
+	template <typename T>
+	value_type cast(const cast_list& pCaster) const
+	{
+		return pCaster.cast(type_info::create<T>(), *this);
+	}
+
 public:
 	static value_type binary_operation(token_type pOp, const value_type& pL, const value_type& pR)
 	{
@@ -425,18 +452,15 @@ public:
 		}
 		else if (auto obj = pL.get<object>())
 		{
-			std::string op_name;
-			switch (pOp)
-			{
-			case token_type::assign: op_name = "__assign"; break;
-			default:
-				throw exception::interpretor_error("Unknown operation");
-			}
-			auto member_iter = obj->members.find(op_name);
+			const char* behavior_name = object_behavior::from_token_type(pOp);
+			if (!behavior_name)
+				throw exception::interpretor_error("Unsupported object behavior");
+
+			auto member_iter = obj->members.find(behavior_name);
 			if (member_iter == obj->members.end())
-				throw exception::interpretor_error("Cannot find operator overload for object");
+				throw exception::interpretor_error("Cannot find behavior method for object");
 			auto member_callable = member_iter->second.get<const callable>();
-			member_callable->func({ pL, pR });
+			member_callable->function({ pL, pR });
 		}
 	}
 
@@ -682,7 +706,7 @@ private:
 					value_type::arg_list args;
 					args.push_back(l);
 					args.insert(args.end(), pArgs.begin(), pArgs.end());
-					return func->func(args);
+					return func->function(args);
 				}
 				};
 			}
@@ -735,7 +759,7 @@ private:
 			args.emplace_back(visit_for_value(pNode->children[i]));
 
 		auto func = c.get<const value_type::callable>();
-		mResult_value = func->func(args);
+		mResult_value = func->function(args);
 	}
 
 	virtual void dispatch(AST_node_if* pNode) override
@@ -770,7 +794,7 @@ private:
 	virtual void dispatch(AST_node_function_declaration* pNode) override
 	{
 		value_type::callable func;
-		func.func = [this, pNode](const std::vector<value_type>& pArgs)->value_type
+		func.function = [this, pNode](const std::vector<value_type>& pArgs)->value_type
 		{
 			if (pArgs.size() != pNode->parameters.size())
 				throw exception::interpretor_error("Invalid argument count");

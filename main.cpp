@@ -35,15 +35,15 @@ int main()
 	myobj.members["x"] = 23;
 	myobj.members["y"] = 32;
 	value_type::callable mytostring;
-	mytostring.func = [](const std::vector<value_type>& pArgs) -> value_type
+	mytostring.function = [](const std::vector<value_type>& pArgs) -> value_type
 	{
 		auto obj = pArgs[0].get<value_type::object>();
 		return std::string("(" + obj->members["x"].to_string() + ", "
 			+ obj->members["y"].to_string() + ")");
 	};
-	myobj.members["__to_string"] = mytostring;
+	myobj.members[object_behavior::to_string] = mytostring;
 	value_type::callable myassign;
-	myassign.func = [](const std::vector<value_type>& pArgs) -> value_type
+	myassign.function = [](const std::vector<value_type>& pArgs) -> value_type
 	{
 		auto obj = pArgs[0].get<value_type::object>();
 		auto obj2 = pArgs[1].get<value_type::object>();
@@ -51,17 +51,17 @@ int main()
 		value_type::binary_operation(token_type::assign, obj->members["y"], obj2->members["y"]);
 		return pArgs[0];
 	};
-	myobj.members["__assign"] = myassign;
+	myobj.members[object_behavior::assign] = myassign;
 
 	interpretor interp;
 
-	// Register string factory
+	// Register the string factory
 	// This will generate the object to access and modify the string
 	interp.set_string_factory([](const std::string& pString) -> value_type
 	{
 		value_type::object obj;
 		obj.members["__string"] = pString;
-		obj.members["__to_string"] = value_type::callable{
+		obj.members[object_behavior::to_string] = value_type::callable{
 			[](const value_type::arg_list& pArgs) -> value_type
 		{
 			auto obj = pArgs[0].get<const value_type::object>();
@@ -81,7 +81,7 @@ int main()
 
 	// Register print function for testing
 	value_type::callable myprint;
-	myprint.func = [](const std::vector<value_type>& pArgs) -> value_type
+	myprint.function = [](const std::vector<value_type>& pArgs) -> value_type
 	{
 		std::cout << "print(" << pArgs[0].to_string() << ")\n";
 		return{};
