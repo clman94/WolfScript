@@ -41,7 +41,7 @@ constexpr const char* from_token_type(token_type pType)
 	return nullptr;
 }
 
-}
+} // namespace object_behavior
 
 struct type_info
 {
@@ -76,19 +76,25 @@ struct type_info
 
 	bool bare_equal(const type_info& pOther) const
 	{
-		return stdtypeinfo == pOther.stdtypeinfo;
+		return *stdtypeinfo == *pOther.stdtypeinfo;
+	}
+
+	bool owning() const
+	{
+		return !is_reference && !is_pointer;
 	}
 
 	// Create a type_info from a C++ type
 	template <typename T>
 	static type_info create()
 	{
+		using type_bare = std::remove_pointer_t<std::decay_t<T>>;
 		return type_info(
-			std::is_const<T>::value,
+			std::is_const<std::remove_pointer_t<T>>::value,
 			std::is_reference<T>::value,
 			std::is_pointer<T>::value,
-			std::is_arithmetic<std::decay_t<T>>::value,
-			&typeid(std::decay_t<T>)
+			std::is_arithmetic<type_bare>::value,
+			&typeid(type_bare)
 		);
 	}
 };
@@ -210,20 +216,20 @@ private:
 				mPtr = nullptr;
 			mPtr_c = static_cast<const void*>(&pRef.get());
 			mData = std::any(pRef);
-			mType_info = type_info::create<T&>();
+			mType_info = type_info::create<std::add_lvalue_reference_t<T>>();
 		}
 
 		// Store the pointer as a reference
 		template <typename T>
 		void set(T* pPtr)
 		{
-			mPtr_c = pPtr;
 			if constexpr (!std::is_const<T>::value)
 				mPtr = pPtr;
 			else
 				mPtr = nullptr;
+			mPtr_c = pPtr;
 			mData = std::any(std::ref(*pPtr));
-			mType_info = type_info::create<T*>();
+			mType_info = type_info::create<std::add_pointer_t<T>>();
 		}
 
 		// Create a unique copy of the value
@@ -240,7 +246,7 @@ private:
 		template <typename T>
 		bool has_type() const
 		{
-			return mType_info.stdtypeinfo == type_info::create<T>().stdtypeinfo;
+			return mType_info.bare_equal(type_info::create<T>());
 		}
 
 		template<class Tcallable>
