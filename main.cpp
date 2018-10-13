@@ -86,7 +86,7 @@ int main()
 		std::cout << "print(" << pArgs[0].to_string() << ")\n";
 		return{};
 	};
-	interp["print"] = std::cref(myprint);
+	interp["print"] = value_type::create_const(&myprint);
 
 	const int pie = 2;
 	interp["pie"] = &pie;

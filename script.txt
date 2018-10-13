@@ -1,7 +1,7 @@
 
 // pie and print are registered by application
 // var pie = 4;
-
+/*
 print("Begin Test");
 
 var str = "eeey";
@@ -31,8 +31,41 @@ function func2(a1, a2)
 		return 3;
 	else
 		return 1;
+}*/
+
+function max(a, b)
+{
+	if (a > b)
+		return a;
+	else
+		return b;
 }
 
+function test_return_value()
+{
+	return max(2, 4) + max(2, 3);
+}
+
+function test_recusion(val)
+{
+	if (val <= 0)
+		return 1;
+	print(val);
+	return test_recusion(val - 1) + test_recusion(val - 1);
+}
+
+print(test_recusion(5));
+
+function fib(value)
+{
+	if (value <= 1)
+		return max(value, 0);
+	//print(value);
+	return fib(value - 1) + fib(value - 2);
+}
+
+print(fib(6));
+/*
 func(3498);
 print(func2(433, 43));
 
@@ -44,3 +77,4 @@ if (pie == 4) // eeyy
 	
 if ((pie = 3) == 3)
 	print(2);
+*/

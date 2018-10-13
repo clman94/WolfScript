@@ -337,11 +337,6 @@ public:
 		return *binary_operation(token_type::equ, *this, pR).get<const bool>();
 	}
 
-	value_type operator()(const std::initializer_list<value_type>& pList)
-	{
-
-	}
-
 	template <typename T>
 	T* get() const
 	{
@@ -585,7 +580,8 @@ private:
 		{
 			i->visit(this);
 
-			// The return request breaks all scopes
+			// The return request breaks all scopes.
+			// The result value is retained because it contains the return value.
 			if (mReturn_request)
 				break;
 
@@ -687,12 +683,12 @@ private:
 	{
 		value_type c = visit_for_value(pNode->children[0]);
 		//std::cout << "Function call to " << pNode->identifier << "\n";
-		const value_type::callable* func = c.get<const value_type::callable>();
+		auto func = c.get<const value_type::callable>();
 
 		std::vector<value_type> args;
 		for (std::size_t i = 1; i < pNode->children.size(); i++)
 			args.emplace_back(visit_for_value(pNode->children[i]));
-		mResult_value = func->func(args);
+		func->func(args);
 	}
 
 	virtual void dispatch(AST_node_if* pNode) override
@@ -742,9 +738,7 @@ private:
 		if (pNode->identifier.empty())
 			mResult_value = func;
 		else
-		{
 			mSymbols[std::string(pNode->identifier)] = func;
-		}
 	}
 
 	virtual void dispatch(AST_node_return* pNode) override
@@ -761,5 +755,4 @@ private:
 	symbol_table mSymbols;
 };
 
-
-}
+} // namespace wolfscript
