@@ -416,9 +416,7 @@ public:
 				{
 					auto rvisit = [pOp, &pL, &pLtype](auto& pRtype)
 					{
-						value_type val = arithmetic_binary_operation_impl(pOp, pL, pLtype, pRtype);
-						std::cout << " Result: " << val.to_string() << "\n";
-						return std::move(val);
+						return arithmetic_binary_operation_impl(pOp, pL, pLtype, pRtype);
 					};
 					return pR.mData->visit_arithmetic(rvisit);
 				}
@@ -477,8 +475,6 @@ private:
 		constexpr bool r_is_bool = std::is_same<std::decay_t<Tr>, bool>::value;
 		// Cast the right value to the type of the left
 		const Tl r_casted = static_cast<Tl>(pRval);
-
-		std::cout << "Binary Op <" << token_name[(unsigned int)pOp] << "> " << pLval << " " << pRval;
 
 		switch (pOp)
 		{
@@ -635,10 +631,7 @@ private:
 			// The return request breaks all scopes.
 			// The result value is retained because it contains the return value.
 			if (mReturn_request)
-			{
-				std::cout << "Returning " << mResult_value.to_string() << "\n";
 				break;
-			}
 			// Clear the result after each line.
 			mResult_value.clear();
 		}
@@ -650,7 +643,6 @@ private:
 	{
 		//std::swap(mResult_value, value_type{});
 		mSymbols.add(std::string(pNode->identifier), visit_for_value(pNode->children[0]).copy());
-		std::cout << "Defined variable " << pNode->identifier << " with " << mResult_value.to_string() << "\n";
 	}
 
 	virtual void dispatch(AST_node_unary_op* pNode)
