@@ -54,17 +54,20 @@ function test_recusion(val)
 	return test_recusion(val - 1) + test_recusion(val - 1);
 }
 
-print(test_recusion(5));
+//print(test_recusion(5));
 
-function fib(value)
+var iterations = 0;
+
+function fib(n)
 {
-	if (value <= 1)
-		return max(value, 0);
-	//print(value);
-	return fib(value - 1) + fib(value - 2);
+	iterations = iterations + 1;
+	if (n <= 1)
+		return n;
+	return fib(n - 1) + fib(n - 2);
 }
 
-print(fib(6));
+print(fib(9));
+print(iterations);
 /*
 func(3498);
 print(func2(433, 43));

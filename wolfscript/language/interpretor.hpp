@@ -85,7 +85,6 @@ public:
 
 };
 
-
 // A pretty large class the represents the entire type system
 // of this scripting language.
 class value_type
@@ -356,8 +355,54 @@ public:
 		return *pCaster.cast(type_info::create<T>(), *this).get<const T>();
 	}
 
-public:
+	void clear()
+	{
+		std::swap(*this, value_type{});
+	}
 
+	// Copy this objects value
+	value_type copy() const
+	{
+		if (auto obj = get<const object>())
+		{
+			// Use the copy overload to copy the value of the object
+			auto copy_overload = obj->members.find("__copy");
+			if (copy_overload != obj->members.end())
+			{
+				auto func = copy_overload->second.get<const callable>();
+				return func->func({ *this });
+			}
+			else
+			{
+				// Recursively copy all members of this object
+				object new_object;
+				for (const auto& i : obj->members)
+					new_object.members[i.first] = i.second.copy();
+				return std::move(new_object);
+			}
+		}
+		else if (auto func = get<const callable>())
+		{
+			// Just copy the callable
+			return *func;
+		}
+		else if (mData->mType_info.is_arithmetic)
+		{
+			// Copy the value of the arithmetic type
+			auto visit = [](const auto& pVal) -> value_type
+			{
+				return pVal;
+			};
+			return mData->visit_arithmetic(visit);
+		}
+		else
+		{
+			// Unknown data type
+			throw exception::interpretor_error("Cannot copy value");
+		}
+	}
+
+public:
 	static value_type binary_operation(token_type pOp, const value_type& pL, const value_type& pR)
 	{
 		bool l_is_arithmetic = pL.mData->mType_info.is_arithmetic;
@@ -371,7 +416,9 @@ public:
 				{
 					auto rvisit = [pOp, &pL, &pLtype](auto& pRtype)
 					{
-						return arithmetic_binary_operation_impl(pOp, pL, pLtype, pRtype);
+						value_type val = arithmetic_binary_operation_impl(pOp, pL, pLtype, pRtype);
+						std::cout << " Result: " << val.to_string() << "\n";
+						return std::move(val);
 					};
 					return pR.mData->visit_arithmetic(rvisit);
 				}
@@ -430,6 +477,8 @@ private:
 		constexpr bool r_is_bool = std::is_same<std::decay_t<Tr>, bool>::value;
 		// Cast the right value to the type of the left
 		const Tl r_casted = static_cast<Tl>(pRval);
+
+		std::cout << "Binary Op <" << token_name[(unsigned int)pOp] << "> " << pLval << " " << pRval;
 
 		switch (pOp)
 		{
@@ -564,8 +613,11 @@ public:
 private:
 	value_type visit_for_value(AST_node* pNode)
 	{
+		mResult_value.clear();
 		pNode->visit(this);
-		return mResult_value;
+		value_type result = mResult_value;
+		mResult_value.clear();
+		return result;
 	}
 
 	value_type visit_for_value(const std::unique_ptr<AST_node>& pNode)
@@ -583,10 +635,12 @@ private:
 			// The return request breaks all scopes.
 			// The result value is retained because it contains the return value.
 			if (mReturn_request)
+			{
+				std::cout << "Returning " << mResult_value.to_string() << "\n";
 				break;
-
+			}
 			// Clear the result after each line.
-			std::swap(mResult_value, value_type{});
+			mResult_value.clear();
 		}
 		mSymbols.pop_scope();
 	}
@@ -594,8 +648,8 @@ private:
 	// Declare variable
 	virtual void dispatch(AST_node_variable* pNode) override
 	{
-		std::swap(mResult_value, value_type{});
-		mSymbols[std::string(pNode->identifier)] = visit_for_value(pNode->children[0]);
+		//std::swap(mResult_value, value_type{});
+		mSymbols.add(std::string(pNode->identifier), visit_for_value(pNode->children[0]).copy());
 		std::cout << "Defined variable " << pNode->identifier << " with " << mResult_value.to_string() << "\n";
 	}
 
@@ -618,6 +672,7 @@ private:
 			if (!r_id)
 				throw exception::interpretor_error("Expected identifier");
 
+			// FIXME: Allow non-const access
 			auto obj = l.get<const value_type::object>();
 
 			// Find the member object and return it
@@ -682,13 +737,13 @@ private:
 	virtual void dispatch(AST_node_function_call* pNode) override
 	{
 		value_type c = visit_for_value(pNode->children[0]);
-		//std::cout << "Function call to " << pNode->identifier << "\n";
-		auto func = c.get<const value_type::callable>();
-
+		
 		std::vector<value_type> args;
 		for (std::size_t i = 1; i < pNode->children.size(); i++)
 			args.emplace_back(visit_for_value(pNode->children[i]));
-		func->func(args);
+
+		auto func = c.get<const value_type::callable>();
+		mResult_value = func->func(args);
 	}
 
 	virtual void dispatch(AST_node_if* pNode) override
@@ -729,16 +784,17 @@ private:
 				throw exception::interpretor_error("Invalid argument count");
 			mSymbols.push_scope();
 			for (std::size_t i = 0; i < pArgs.size(); i++)
-				mSymbols[std::string(pNode->parameters[i])] = pArgs[i];
-			pNode->children[0]->visit(this);
+				mSymbols.add(std::string(pNode->parameters[i]), pArgs[i]);
+			
+			value_type retval = visit_for_value(pNode->children[0]);
 			mReturn_request = false; // Clear the request
 			mSymbols.pop_scope();
-			return mResult_value;
+			return retval;
 		};
 		if (pNode->identifier.empty())
 			mResult_value = func;
 		else
-			mSymbols[std::string(pNode->identifier)] = func;
+			mSymbols.add(std::string(pNode->identifier), func);
 	}
 
 	virtual void dispatch(AST_node_return* pNode) override
