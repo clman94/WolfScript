@@ -67,6 +67,62 @@ enum class token_type
 	kw_class,
 	kw_function,
 	kw_return,
+
+	count,
+};
+
+constexpr const char* token_name[static_cast<unsigned int>(token_type::count)] =
+{
+	"Unknown",
+	"Identifier",
+
+	"Left Parenthesis",
+	"Right Parenthesis",
+
+	"Left Brace",
+	"Right Brace",
+
+	"Add",
+	"Subtract",
+	"Multiply",
+	"Divide",
+	"Equal",
+	"Not Equal",
+	"Assign",
+
+	"Less Than",
+	"Greater Than",
+	"Less Than Equal To",
+	"Greater Than Equal To",
+
+	"Logical Or",
+	"Logical And",
+
+	"Separator",
+	"Namespace Separator",
+
+	"Period",
+
+	"String Constant",
+	"Integer Constant",
+	"Floating-point Constant",
+
+	"End of line",
+	"End of file",
+
+	"Keyword var",
+	"Keyword const",
+	"Keyword int",
+	"Keyword uint",
+	"Keyword float",
+	"Keyword string",
+	"Keyword if",
+	"Keyword else",
+	"Keyword for",
+	"Keyword while",
+	"Keyword class",
+	"Keyword function",
+	"Keyword return",
 };
 
 struct text_position
@@ -170,7 +226,7 @@ token tokenize_identifier(std::string_view& pView, text_position& pPosition)
 	int length = 0;
 	for (auto i : pView)
 	{
-		if (is_letter(i) || is_digit(i))
+		if (is_letter(i) || is_digit(i) || i == '_')
 			++length;
 		else
 			break;
@@ -410,5 +466,4 @@ token_array tokenize(std::string_view pView)
 	return result;
 }
 
-
-}
+} // namespace wolfscript
