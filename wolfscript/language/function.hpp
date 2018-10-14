@@ -160,14 +160,19 @@ generic_function_binding make_proxy_function(Tfunc&& pFunc,
 {
 	auto proxy = [pFunc = std::forward<Tfunc>(pFunc)](const value_type::arg_list& pArgs) -> value_type
 	{
+		auto invoke = [&]()
+		{
+			return std::invoke(pFunc, std::forward<Tparams>(get_param<Tparams>(pArgs[pParams_index], pIs_member && pParams_index == 0))...);
+		};
+
 		if constexpr (std::is_same_v<Tret, void>)
 		{
-			std::invoke(pFunc, std::forward<Tparams>(get_param<Tparams>(pArgs[pParams_index], pIs_member && pParams_index == 0))...);
+			invoke();
 			return{}; // Return void type
 		}
 		else
 		{
-			return std::invoke(pFunc, std::forward<Tparams>(get_param<Tparams>(pArgs[pParams_index], pIs_member && pParams_index == 0))...);
+			return invoke();
 		}
 	};
 	return generic_function_binding::create(std::move(proxy), pSig);
