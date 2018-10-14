@@ -1,6 +1,7 @@
 #pragma once
 
-#include "tokenizer.hpp"
+#include "token.hpp"
+#include "exception.hpp"
 #include <memory>
 #include <set>
 #include <iostream>
@@ -113,24 +114,6 @@ struct AST_node_return :
 	AST_node_impl<AST_node_return>
 {
 };
-
-namespace exception
-{
-struct parse_error :
-	std::runtime_error
-{
-	parse_error(const char* pMsg) :
-		std::runtime_error(pMsg)
-	{}
-
-	parse_error(const char* pMsg, token pToken) :
-		std::runtime_error(pMsg),
-		current_token(pToken)
-	{}
-
-	token current_token;
-};
-}
 
 template<typename Tto, typename Tfrom>
 inline std::unique_ptr<Tto> static_unique_pointer_cast(std::unique_ptr<Tfrom>&& pOld)
@@ -534,18 +517,6 @@ private:
 	token_array mTokens;
 	token_iterator mIter;
 };
-
-
-namespace exception
-{
-struct interpretor_error :
-	std::runtime_error
-{
-	interpretor_error(const char* pMsg) :
-		std::runtime_error(pMsg)
-	{}
-};
-}
 
 // This visitor prints out the AST for debugging
 class AST_viewer :

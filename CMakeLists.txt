@@ -14,6 +14,11 @@ endif()
 add_executable(FunLang
 	main.cpp
 	wolfscript/wolfscript.hpp
+	wolfscript/language/value_type.hpp
+	wolfscript/language/type_info.hpp
+	wolfscript/language/exception.hpp
+	wolfscript/language/function.hpp
+	wolfscript/language/token.hpp
 	wolfscript/language/tokenizer.hpp
 	wolfscript/language/parser.hpp
 	wolfscript/language/interpretor.hpp)
