@@ -516,6 +516,10 @@ private:
 			switch (pOp)
 			{
 			case token_type::assign:
+			case token_type::add_assign:
+			case token_type::sub_assign:
+			case token_type::mul_assign:
+			case token_type::div_assign:
 				throw exception::interpretor_error("Cannot assign to a constant value");
 			}
 		}
@@ -523,9 +527,18 @@ private:
 		{
 			switch (pOp)
 			{
-			case token_type::assign:
-				pLval = r_casted;
-				return pL;
+			case token_type::assign: pLval = r_casted; return pL;
+			}
+
+			if constexpr (!l_is_bool && !r_is_bool)
+			{
+				switch (pOp)
+				{
+				case token_type::add_assign: pLval += r_casted; return pL;
+				case token_type::sub_assign: pLval -= r_casted; return pL;
+				case token_type::mul_assign: pLval *= r_casted; return pL;
+				case token_type::div_assign: pLval /= r_casted; return pL;
+				}
 			}
 		}
 

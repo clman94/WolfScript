@@ -27,7 +27,12 @@ enum class token_type
 	div,
 	equ,
 	not_equ,
+
 	assign,
+	add_assign,
+	sub_assign,
+	mul_assign,
+	div_assign,
 
 	less_than,
 	greater_than,
@@ -85,7 +90,12 @@ constexpr const char* token_name[static_cast<unsigned int>(token_type::count)] =
 	"Divide",
 	"Equal",
 	"Not Equal",
+
 	"Assign",
+	"Add Assign",
+	"Subtract Assign",
+	"Multiply Assign",
+	"Divide Assign",
 
 	"Less Than",
 	"Greater Than",

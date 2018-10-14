@@ -333,7 +333,10 @@ private:
 
 	std::unique_ptr<AST_node> parse_assignment()
 	{
-		return parse_binary_expression({ token_type::assign }, &parser::parse_logical_or);
+		return parse_binary_expression({ token_type::assign,
+			token_type::add_assign, token_type::sub_assign,
+			token_type::mul_assign, token_type::div_assign },
+			&parser::parse_logical_or);
 	}
 
 	std::unique_ptr<AST_node> parse_logical_or()

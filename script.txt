@@ -60,7 +60,7 @@ var iterations = 0;
 
 function fib(n)
 {
-	iterations = iterations + 1;
+	iterations += 1;
 	if (n <= 1)
 		return n;
 	return fib(n - 1) + fib(n - 2);
@@ -68,6 +68,7 @@ function fib(n)
 
 print(fib(9));
 print(iterations);
+
 /*
 func(3498);
 print(func2(433, 43));
