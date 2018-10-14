@@ -143,13 +143,14 @@ auto get_param(const value_type& pValue, bool pIs_this_pointer)
 {
 	if (pIs_this_pointer)
 	{
+		// Get the app registered object from the object_behavior::object member
 		auto obj = pValue.get<const value_type::object>();
 		auto app_obj_iter = obj->members.find(object_behavior::object);
 		if (app_obj_iter == obj->members.end())
 			throw exception::interpretor_error("Cannot get object");
 		return get_param<T>(*app_obj_iter);
 	}
-	else 
+	else
 		return get_param<T>(pValue);
 }
 

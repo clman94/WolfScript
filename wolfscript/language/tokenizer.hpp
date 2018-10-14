@@ -12,6 +12,9 @@
 namespace wolfscript
 {
 
+namespace detail
+{
+
 bool is_whitespace(char c)
 {
 	return
@@ -61,9 +64,11 @@ token tokenize_identifier(std::string_view& pView, text_position& pPosition)
 		else
 			break;
 	}
+
 	token t;
 	t.text = pView.substr(0, length);
 
+	// Lookup table for keywords and their respective token_type value
 	std::map<std::string_view, token_type> keywords =
 	{
 		{"var" , token_type::kw_var},
@@ -229,8 +234,18 @@ void skip_multiline_comment(std::string_view& pView, text_position& pPosition)
 	pView.remove_prefix(std::distance(pView.begin(), i));
 }
 
+} // namespace detail
+
+// Convert a string into an array of tokens for the parser.
+// To ensure efficiency, the tokenizer does not store strings copied
+// from the original. It only keeps references to sections of it, so
+// you MUST keep the string alive as long as you are using the tokens
+// generated.
+// This will throw a tokenization_error exception on an error.
 token_array tokenize(std::string_view pView)
 {
+	using namespace detail;
+
 	token_array result;
 	text_position current_position;
 
@@ -248,6 +263,8 @@ token_array tokenize(std::string_view pView)
 			skip_multiline_comment(pView, current_position);
 		else if (query_multichar(pView, "=="))
 			result.push_back(tokenize_char(pView, current_position, token_type::equ, 2));
+		else if (query_multichar(pView, "!="))
+			result.push_back(tokenize_char(pView, current_position, token_type::not_equ, 2));
 		else if (query_multichar(pView, "+="))
 			result.push_back(tokenize_char(pView, current_position, token_type::add_assign, 2));
 		else if (query_multichar(pView, "-="))
@@ -256,8 +273,6 @@ token_array tokenize(std::string_view pView)
 			result.push_back(tokenize_char(pView, current_position, token_type::mul_assign, 2));
 		else if (query_multichar(pView, "/="))
 			result.push_back(tokenize_char(pView, current_position, token_type::div_assign, 2));
-		else if (query_multichar(pView, "!="))
-			result.push_back(tokenize_char(pView, current_position, token_type::not_equ, 2));
 		else if (query_multichar(pView, "||"))
 			result.push_back(tokenize_char(pView, current_position, token_type::logical_or, 2));
 		else if (query_multichar(pView, "<="))

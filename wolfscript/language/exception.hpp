@@ -6,30 +6,39 @@
 namespace wolfscript::exception
 {
 
-struct tokenization_error :
+// Base class for all wolfscript exceptions.
+struct wolf_exception :
 	std::runtime_error
 {
-	tokenization_error(const char* pMsg) :
+	wolf_exception(const char* pMsg) :
 		std::runtime_error(pMsg)
 	{}
+};
 
-	tokenization_error(const char* pMsg, text_position text_position) :
-		std::runtime_error(pMsg),
-		position(text_position)
+struct tokenization_error :
+	wolf_exception
+{
+	tokenization_error(const char* pMsg) :
+		wolf_exception(pMsg)
+	{}
+
+	tokenization_error(const char* pMsg, text_position pPosition) :
+		wolf_exception(pMsg),
+		position(pPosition)
 	{}
 
 	text_position position;
 };
 
 struct parse_error :
-	std::runtime_error
+	wolf_exception
 {
 	parse_error(const char* pMsg) :
-		std::runtime_error(pMsg)
+		wolf_exception(pMsg)
 	{}
 
 	parse_error(const char* pMsg, token pToken) :
-		std::runtime_error(pMsg),
+		wolf_exception(pMsg),
 		current_token(pToken)
 	{}
 
@@ -37,10 +46,10 @@ struct parse_error :
 };
 
 struct interpretor_error :
-	std::runtime_error
+	wolf_exception
 {
 	interpretor_error(const char* pMsg) :
-		std::runtime_error(pMsg)
+		wolf_exception(pMsg)
 	{}
 };
 

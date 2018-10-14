@@ -156,9 +156,13 @@ constexpr text_position unknown_position(-1, -1);
 
 struct token
 {
+	// The representation of this token
 	token_type type;
+	// Reference to the source for this token
 	std::string_view text;
+	// Value associated with string and arithmetic types
 	std::variant<int, float, std::string> value;
+	// Position in the source
 	text_position start_position;
 
 	token() :
@@ -167,12 +171,6 @@ struct token
 	token(token_type pType) :
 		type(pType)
 	{}
-
-	bool is_operation() const
-	{
-		return type >= token_type::add &&
-			type <= token_type::equ;
-	}
 };
 
 typedef std::vector<token> token_array;

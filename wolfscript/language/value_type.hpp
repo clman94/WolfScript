@@ -15,28 +15,33 @@ namespace wolfscript
 namespace object_behavior
 {
 
+// Object
 constexpr const char* copy = "__copy";
-constexpr const char* to_string = "__to_string";
 constexpr const char* object = "__object";
+constexpr const char* to_string = "__to_string";
 
+// Binary
 constexpr const char* assign = "__assign";
 constexpr const char* add_assign = "__add_assign";
 constexpr const char* sub_assign = "__sub_assign";
 constexpr const char* mul_assign = "__mul_assign";
 constexpr const char* div_assign = "__div_assign";
-
 constexpr const char* add = "__add";
 constexpr const char* sub = "__sub";
 constexpr const char* mul = "__mul";
 constexpr const char* div = "__div";
 
-constexpr const char* from_token_type(token_type pType)
+// Unary
+constexpr const char* negate = "__negate";
+constexpr const char* positive = "__positive";
+
+constexpr const char* from_token_type(token_type pType, bool pUnary = false)
 {
 	switch (pType)
 	{
 	case token_type::assign: return assign;
-	case token_type::add: return add;
-	case token_type::sub: return sub;
+	case token_type::add: return pUnary ? positive : add;
+	case token_type::sub: return pUnary ? negate : sub;
 	case token_type::mul: return mul;
 	case token_type::div: return div;
 	}
@@ -279,7 +284,6 @@ public:
 		return mData->mType_info;
 	}
 
-
 	std::string to_string() const
 	{
 		if (*mData->mType_info.stdtypeinfo == typeid(object))
@@ -349,7 +353,7 @@ public:
 		std::swap(*this, value_type{});
 	}
 
-	// Copy this objects value
+	// Copy this object's value
 	value_type copy() const
 	{
 		if (auto obj = get<const object>())
@@ -399,7 +403,7 @@ public:
 	}
 
 	// Creates a new value_type pointing to the same stored value
-	// but a seperate data instance. Optional parameter to make
+	// but in a seperate data instance. Optional parameter to make
 	// the new reference constant. This is helpful when casting
 	// an object, too.
 	value_type create_unique_reference(bool mMake_const = false) const
@@ -442,9 +446,12 @@ public:
 			auto member_iter = obj->members.find(behavior_name);
 			if (member_iter == obj->members.end())
 				throw exception::interpretor_error("Cannot find behavior method for object");
+
 			auto member_callable = member_iter->second.get<const callable>();
-			member_callable->function({ pL, pR });
+			return member_callable->function({ pL, pR });
 		}
+		else
+			throw exception::interpretor_error("No implementation to perform binary operation");
 	}
 
 	static value_type unary_operation(token_type pOp, const value_type& pU)
@@ -472,6 +479,21 @@ public:
 			};
 			return pU.mData->visit_arithmetic(lvisit);
 		}
+		else if (auto obj = pU.get<object>())
+		{
+			const char* behavior_name = object_behavior::from_token_type(pOp);
+			if (!behavior_name)
+				throw exception::interpretor_error("Unsupported object behavior");
+
+			auto member_iter = obj->members.find(behavior_name);
+			if (member_iter == obj->members.end())
+				throw exception::interpretor_error("Cannot find behavior method for object");
+
+			auto member_callable = member_iter->second.get<const callable>();
+			return member_callable->function({ pU });
+		}
+		else
+			throw exception::interpretor_error("No implementation to perform unary operation");
 	}
 
 private:
