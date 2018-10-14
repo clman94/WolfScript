@@ -1,4 +1,5 @@
 #include "wolfscript/wolfscript.hpp"
+#include "wolfscript/language/function.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -78,6 +79,13 @@ int main()
 		return std::move(obj);
 	});
 	interp["myobj"] = std::ref(myobj);
+
+	auto printfun = [](const std::string& pStr)
+	{
+		std::cout << pStr;
+	};
+	auto printfunbinding = wolfscript::function(printfun);
+	printfunbinding.function({ std::string("pie is great") });
 
 	// Register print function for testing
 	value_type::callable myprint;

@@ -120,7 +120,6 @@ private:
 	// Declare variable
 	virtual void dispatch(AST_node_variable* pNode) override
 	{
-		//std::swap(mResult_value, value_type{});
 		mSymbols.add(std::string(pNode->identifier), visit_for_value(pNode->children[0]).copy());
 	}
 

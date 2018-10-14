@@ -17,6 +17,7 @@ namespace object_behavior
 
 constexpr const char* copy = "__copy";
 constexpr const char* to_string = "__to_string";
+constexpr const char* object = "__object";
 
 constexpr const char* assign = "__assign";
 constexpr const char* add_assign = "__add_assign";
@@ -51,6 +52,7 @@ class value_type
 public:
 	using cast_function = std::function<value_type(type_info, value_type)>;
 	using arg_list = std::vector<value_type>;
+	using generic_function = std::function<value_type(const arg_list&)>;
 
 	// This type wraps a function type that can be called in-script
 	struct callable
@@ -58,7 +60,7 @@ public:
 		// For methods, the first parameter is the object.
 		// If accessed directly by the application, you need to provide
 		// the first parameter.
-		std::function<value_type(const arg_list&)> function;
+		generic_function function;
 	};
 
 	// Object type for script objects

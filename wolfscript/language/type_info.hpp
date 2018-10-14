@@ -6,6 +6,9 @@
 namespace wolfscript
 {
 
+template <typename T>
+using strip_bare_t = std::remove_pointer_t<std::decay_t<T>>;
+
 struct type_info
 {
 	bool is_const{ false };
@@ -51,7 +54,7 @@ struct type_info
 	template <typename T>
 	static type_info create()
 	{
-		using type_bare = std::remove_pointer_t<std::decay_t<T>>;
+		using type_bare = strip_bare_t<T>;
 		return type_info(
 			std::is_const<std::remove_pointer_t<T>>::value,
 			std::is_reference<T>::value,

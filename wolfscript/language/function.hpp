@@ -1,6 +1,7 @@
 #pragma once
 
 #include "value_type.hpp"
+#include <functional>
 
 namespace wolfscript
 {
@@ -86,7 +87,7 @@ struct function_signature_types
 struct generic_function_binding
 {
 	function_signature_types types;
-	value_type::callable function;
+	value_type::generic_function function;
 	bool is_const_member;
 
 	template <typename Tfunc, bool pIs_member, bool pIs_const, typename Tret, typename...Tparams>
@@ -126,59 +127,57 @@ struct generic_destructor_binding :
 	{}
 };
 
-// Handles the return value
-template <typename Tfunc, bool pIs_member, bool pIs_const, typename Tret, typename...Tparams>
-auto wrap_return(Tfunc&& pFunc, function_signature<Tret, function_params<Tparams...>, pIs_member, pIs_const>)
+template <typename T>
+auto get_param(const value_type& pValue)
 {
-	return[pFunc = std::forward<Tfunc>(pFunc)](const value_type::arg_list& pArgs, Tparams&&... pParams)
+	using type_bare = strip_bare_t<T>;
+	auto ptr = std::is_const_v<std::remove_pointer_t<T>> ? pValue.get<const type_bare>() : pValue.get<type_bare>();
+	if constexpr (std::is_pointer_v<T>)
+		return ptr;
+	else
+		return std::ref(*ptr);
+}
+
+template <typename T>
+auto get_param(const value_type& pValue, bool pIs_this_pointer)
+{
+	if (pIs_this_pointer)
 	{
-		if constexpr (std::is_same<void, Tret>::value)
-		{
-			// No return value
-			std::invoke(pFunc, pGen, std::forward<Tparams>(pParams)...);
-		}
-		else
-		{
-			new (pGen->GetAddressOfReturnLocation()) Tret{ std::invoke(pFunc, pGen, std::forward<Tparams>(pParams)...) };
-		}
-	};
+		auto obj = pValue.get<const value_type::object>();
+		auto app_obj_iter = obj->members.find(object_behavior::object);
+		if (app_obj_iter == obj->members.end())
+			throw exception::interpretor_error("Cannot get object");
+		return get_param<T>(*app_obj_iter);
+	}
+	else 
+		return get_param<T>(pValue);
 }
 
 template <typename Tfunc, bool pIs_member, bool pIs_const, typename Tret, typename...Tparams, std::size_t...pParams_index>
-generic_function_binding make_generic_callable(Tfunc&& pFunc,
+generic_function_binding make_proxy_function(Tfunc&& pFunc,
 	function_signature<Tret, function_params<Tparams...>, pIs_member, pIs_const> pSig,
 	std::index_sequence<pParams_index...>)
 {
-	auto wrapper = [pFunc = std::forward<Tfunc>(pFunc), pSig](AngelScript::asIScriptGeneric* pGen)
+	auto proxy = [pFunc = std::forward<Tfunc>(pFunc)](const value_type::arg_list& pArgs) -> value_type
 	{
-		std::invoke(wrap_return(pFunc, pSig), pGen,
-			std::forward<Tparams>(generic_getter<std::remove_reference_t<Tparams>>::get(pGen, pParams_index))...);
+		if constexpr (std::is_same_v<Tret, void>)
+		{
+			std::invoke(pFunc, std::forward<Tparams>(get_param<Tparams>(pArgs[pParams_index], pIs_member && pParams_index == 0))...);
+			return{}; // Return void type
+		}
+		else
+		{
+			return std::invoke(pFunc, std::forward<Tparams>(get_param<Tparams>(pArgs[pParams_index], pIs_member && pParams_index == 0))...);
+		}
 	};
-	return generic_function_binding::create(std::move(wrapper), pSig);
+	return generic_function_binding::create(std::move(proxy), pSig);
 }
 
-template <typename Tfunc, bool pIs_const, typename Tret, typename Tobject, typename...Tparams>
-generic_function_binding make_object_proxy(Tfunc&& pFunc, function_signature<Tret, function_params<Tobject, Tparams...>, true, pIs_const>)
+template <typename Tfunc, bool pIs_member, bool pIs_const, typename Tret, typename...Tparams>
+generic_function_binding make_proxy_function(Tfunc&& pFunc,
+	function_signature<Tret, function_params<Tparams...>, pIs_member, pIs_const> pSig)
 {
-	auto object_wrapper = [pFunc = std::forward<Tfunc>(pFunc)](AngelScript::asIScriptGeneric* pGen, Tparams&&... pParams)
-	{
-		assert(pGen->GetObject());
-		return std::invoke(pFunc, static_cast<Tobject>(pGen->GetObject()), std::forward<Tparams>(pParams)...);
-	};
-	return make_generic_callable(std::move(object_wrapper),
-		function_signature<Tret, function_params<Tparams...>, true, pIs_const>{},
-		std::index_sequence_for<Tparams...>{});
-}
-
-// Pretty much do nothing since it is not a class object
-template <typename Tfunc, typename Tret, typename...Tparams>
-generic_function_binding make_object_proxy(Tfunc&& pFunc, function_signature<Tret, function_params<Tparams...>, false, false> pSig)
-{
-	auto object_wrapper = [pFunc = std::forward<Tfunc>(pFunc)](AngelScript::asIScriptGeneric*, Tparams&&... pParams)
-	{
-		return std::invoke(pFunc, std::forward<Tparams>(pParams)...);
-	};
-	return make_generic_callable(std::move(object_wrapper), pSig, std::index_sequence_for<Tparams...>{});
+	return make_proxy_function(std::forward<Tfunc>(pFunc), pSig, std::index_sequence_for<Tparams...>{});
 }
 
 } // namespace detail
@@ -213,25 +212,25 @@ detail::generic_function_binding function(this_first_t, Tret(*pFunc)(Tparams...)
 
 	using sig = detail::function_signature<Tret, detail::function_params<Tparams...>, true, std::is_const_v<class_type>>{};
 
-	return detail::make_object_proxy(std::move(pFunc), sig{});
+	return detail::make_proxy_function(std::move(pFunc), sig{});
 }
 
 template <typename Tret, typename...Tparams>
 detail::generic_function_binding function(Tret(*pFunc)(Tparams...))
 {
-	return detail::make_object_proxy(std::move(pFunc), detail::function_signature<Tret, detail::function_params<Tparams...>>{});
+	return detail::make_proxy_function(std::move(pFunc), detail::function_signature<Tret, detail::function_params<Tparams...>>{});
 }
 
 template <typename Tret, typename Tclass, typename...Tparams>
 detail::generic_function_binding function(Tret(Tclass::*pFunc)(Tparams...))
 {
-	return detail::make_object_proxy(std::move(pFunc), detail::function_signature<Tret, detail::function_params<Tclass*, Tparams...>, true>{});
+	return detail::make_proxy_function(std::move(pFunc), detail::function_signature<Tret, detail::function_params<Tclass*, Tparams...>, true>{});
 }
 
 template <typename Tret, typename Tclass, typename...Tparams>
 detail::generic_function_binding function(Tret(Tclass::*pFunc)(Tparams...) const)
 {
-	return detail::make_object_proxy(std::move(pFunc), detail::function_signature<Tret, detail::function_params<const Tclass*, Tparams...>, true, true>{});
+	return detail::make_proxy_function(std::move(pFunc), detail::function_signature<Tret, detail::function_params<const Tclass*, Tparams...>, true, true>{});
 }
 
 template <typename T>
@@ -239,14 +238,14 @@ detail::generic_function_binding function(T&& pFunc)
 {
 	using traits = detail::function_signature_traits<typename decltype(&std::decay_t<T>::operator())>;
 	using sig = detail::function_signature<traits::type::return_type, traits::type::param_types>;
-	return detail::make_object_proxy(std::forward<T>(pFunc), sig{});
+	return detail::make_proxy_function(std::forward<T>(pFunc), sig{});
 }
 
 // Bind a member function
 template <typename T, typename Tinstance>
 detail::generic_function_binding function(T&& pFunc, Tinstance&& pInstance)
 {
-	return detail::make_object_proxy(bind_mem_fn(pFunc, std::forward<Tinstance>(pInstance)));
+	return detail::make_proxy_function(bind_mem_fn(pFunc, std::forward<Tinstance>(pInstance)));
 }
 
 } // namespace wolfscript
