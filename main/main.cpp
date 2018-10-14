@@ -1,5 +1,5 @@
-#include "wolfscript/wolfscript.hpp"
-#include "wolfscript/language/function.hpp"
+#include "../wolfscript/wolfscript.hpp"
+#include "../wolfscript/language/function.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -61,19 +61,19 @@ int main()
 	interp.set_string_factory([](const std::string& pString) -> value_type
 	{
 		value_type::object obj;
-		obj.members["__string"] = pString;
+		obj.members[object_behavior::object] = pString;
 		obj.members[object_behavior::to_string] = value_type::callable{
 			[](const value_type::arg_list& pArgs) -> value_type
 		{
 			auto obj = pArgs[0].get<const value_type::object>();
-			auto str = obj->members.find("__string")->second.get<const std::string>();
+			auto str = obj->members.find(object_behavior::object)->second.get<const std::string>();
 			return *str;
 		}};
 		obj.members["length"] = value_type::callable{
 			[](const value_type::arg_list& pArgs) -> value_type
 		{
 			auto obj = pArgs[0].get<const value_type::object>();
-			auto str = obj->members.find("__string")->second.get<const std::string>();
+			auto str = obj->members.find(object_behavior::object)->second.get<const std::string>();
 			return str->length();
 		}};
 		return std::move(obj);
