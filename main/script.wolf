@@ -1,37 +1,12 @@
 
-// pie and print are registered by application
-// var pie = 4;
-/*
-print("Begin Test");
-
-var str = "eeey";
-print(-23 * str.length() + 10);
-
-// Testing a application registered object
-print(myobj.x);
-print(myobj.y);
-print(myobj);
-
-print(pie);
-print(pie + 23);
-
-//34 = 3;
-
-var func = function(a1)
+function str_test()
 {
-	print(a1 * pie);
-};
+	var str1 = "eeey";
+	var str2 = " aaaah";
 
-function func2(a1, a2)
-{
-	print(a1 + 4);
-	if (a1 == 43)
-		return 0;
-	else if (a1 == 433)
-		return 3;
-	else
-		return 1;
-}*/
+	str1 += str2;
+}
+print(str_test());
 
 function max(a, b)
 {
@@ -40,6 +15,8 @@ function max(a, b)
 	else
 		return b;
 }
+
+max(23, 23);
 
 function test_return_value()
 {
@@ -67,17 +44,3 @@ function fib(n)
 }
 print(fib(9));
 print(iterations);
-
-/*
-func(3498);
-print(func2(433, 43));
-
-print(function(thing) { print(thing); return 978; } (43));
-
-// This thing
-if (pie == 4) // eeyy
-	print(1);
-	
-if ((pie = 3) == 3)
-	print(2);
-*/

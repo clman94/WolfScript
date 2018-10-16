@@ -44,13 +44,17 @@ constexpr const char* from_token_type(token_type pType, bool pUnary = false)
 	case token_type::sub: return pUnary ? negate : sub;
 	case token_type::mul: return mul;
 	case token_type::div: return div;
+	case token_type::add_assign: return add_assign;
+	case token_type::sub_assign: return sub_assign;
+	case token_type::mul_assign: return mul_assign;
+	case token_type::div_assign: return div_assign;
 	}
 	return nullptr;
 }
 
 } // namespace object_behavior
 
-// A pretty large class the represents the entire type system
+// A pretty large class that represents the entire type system
 // of this scripting language.
 class value_type
 {
@@ -71,7 +75,7 @@ public:
 	// Object type for script objects
 	struct object
 	{
-		// Members are accessed through the period operator.
+		// Members are accessed through the period operator
 		std::map<std::string, value_type> members;
 	};
 
@@ -359,10 +363,10 @@ public:
 		if (auto obj = get<const object>())
 		{
 			// Use the copy overload to copy the value of the object
-			auto copy_overload = obj->members.find(object_behavior::copy);
-			if (copy_overload != obj->members.end())
+			auto copy_behavior = obj->members.find(object_behavior::copy);
+			if (copy_behavior != obj->members.end())
 			{
-				auto func = copy_overload->second.get<const callable>();
+				auto func = copy_behavior->second.get<const callable>();
 				return func->function({ *this });
 			}
 			else
@@ -390,8 +394,9 @@ public:
 		}
 		else
 		{
-			// Unknown data type
-			throw exception::interpretor_error("Cannot copy value");
+			value_type new_value_type;
+			new_value_type.mData = std::make_shared<data>(*mData);
+			return new_value_type;
 		}
 	}
 
@@ -437,7 +442,7 @@ public:
 			};
 			return pL.mData->visit_arithmetic(lvisit);
 		}
-		else if (auto obj = pL.get<object>())
+		else if (auto obj = pL.get<const object>())
 		{
 			const char* behavior_name = object_behavior::from_token_type(pOp);
 			if (!behavior_name)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "value_type.hpp"
+#include "common.hpp"
 #include <functional>
 
 namespace wolfscript
@@ -14,7 +15,6 @@ struct function_params
 {
 	constexpr static const std::size_t size = sizeof...(Tparams);
 };
-
 
 template <typename Tret, typename Tparams, bool Tis_member = false, bool Tis_const = false>
 struct function_signature
@@ -128,30 +128,38 @@ struct generic_destructor_binding :
 };
 
 template <typename T>
-auto get_param(const value_type& pValue)
+auto get_arg(const value_type& pValue)
 {
-	using type_bare = strip_bare_t<T>;
-	auto ptr = std::is_const_v<std::remove_pointer_t<T>> ? pValue.get<const type_bare>() : pValue.get<type_bare>();
-	if constexpr (std::is_pointer_v<T>)
-		return ptr;
-	else
-		return std::ref(*ptr);
-}
-
-template <typename T>
-auto get_param(const value_type& pValue, bool pIs_this_pointer)
-{
-	if (pIs_this_pointer)
+	if constexpr (std::is_same_v<strip_bare_t<T>, value_type>)
 	{
-		// Get the app registered object from the object_behavior::object member
-		auto obj = pValue.get<const value_type::object>();
-		auto app_obj_iter = obj->members.find(object_behavior::object);
-		if (app_obj_iter == obj->members.end())
-			throw exception::interpretor_error("Cannot get object");
-		return get_param<T>(*app_obj_iter);
+		return std::forward<decltype(pValue)>(pValue);
 	}
 	else
-		return get_param<T>(pValue);
+	{
+		constexpr bool is_const_value = std::is_const_v<std::remove_pointer_t<T>>;
+		using type = add_const_cond_t<is_const_value, strip_bare_t<T>>;
+
+		type* ptr = nullptr;
+
+		// Get the pointer to the underlaying application object
+		if (auto obj = pValue.get<const value_type::object>())
+		{
+			auto obj_iter = obj->members.find(object_behavior::object);
+			ptr = obj_iter->second.get<type>();
+		}
+		else
+		{
+			ptr = pValue.get<type>();
+		}
+
+		if (!ptr)
+			throw exception::interpretor_error("Invalid argument");
+
+		if constexpr (std::is_pointer_v<T>)
+			return ptr;
+		else
+			return std::ref(*ptr);
+	}
 }
 
 template <typename Tfunc, bool pIs_member, bool pIs_const, typename Tret, typename...Tparams, std::size_t...pParams_index>
@@ -163,7 +171,7 @@ generic_function_binding make_proxy_function(Tfunc&& pFunc,
 	{
 		auto invoke = [&]()
 		{
-			return std::invoke(pFunc, std::forward<Tparams>(get_param<Tparams>(pArgs[pParams_index], pIs_member && pParams_index == 0))...);
+			return std::invoke(pFunc, std::forward<Tparams>(get_arg<Tparams>(pArgs[pParams_index]))...);
 		};
 
 		if constexpr (std::is_same_v<Tret, void>)
@@ -200,21 +208,21 @@ detail::generic_function_binding function(this_first_t, T&& pFunc)
 	using traits = detail::function_signature_traits<typename decltype(&std::decay_t<T>::operator())>;
 	using class_type = detail::first_param<traits::type::param_types>::type;
 
-	static_assert(traits::type::param_types::size > 0, "You need to provide at least one parameter for method function");
-	static_assert(std::is_pointer_v<class_type>, "First parameter of method function needs to be a pointer");
+	static_assert(traits::type::param_types::size > 0, "You need to provide at least one parameter for a standalone method");
+	static_assert(std::is_pointer_v<class_type>, "First parameter of a standalone method needs to be a pointer");
 
 	using sig = detail::function_signature<traits::type::return_type, traits::type::param_types, true, std::is_const_v<class_type>>;
 
-	return detail::make_object_proxy(std::forward<T>(pFunc), sig{});
+	return detail::make_proxy_function(std::forward<T>(pFunc), sig{});
 }
 
 template <typename Tret, typename...Tparams>
 detail::generic_function_binding function(this_first_t, Tret(*pFunc)(Tparams...))
 {
-	static_assert(sizeof...(Tparams) > 0, "You need to provide at least one parameter for method function");
+	static_assert(sizeof...(Tparams) > 0, "You need to provide at least one parameter for a standalone method");
 	using class_type = detail::first_param<Tparams...>::type;
 
-	static_assert(std::is_pointer_v<class_type>, "First parameter of method function needs to be a pointer");
+	static_assert(std::is_pointer_v<class_type>, "First parameter of a standalone method needs to be a pointer");
 
 	using sig = detail::function_signature<Tret, detail::function_params<Tparams...>, true, std::is_const_v<class_type>>{};
 
@@ -245,13 +253,6 @@ detail::generic_function_binding function(T&& pFunc)
 	using traits = detail::function_signature_traits<typename decltype(&std::decay_t<T>::operator())>;
 	using sig = detail::function_signature<traits::type::return_type, traits::type::param_types>;
 	return detail::make_proxy_function(std::forward<T>(pFunc), sig{});
-}
-
-// Bind a member function
-template <typename T, typename Tinstance>
-detail::generic_function_binding function(T&& pFunc, Tinstance&& pInstance)
-{
-	return detail::make_proxy_function(bind_mem_fn(pFunc, std::forward<Tinstance>(pInstance)));
 }
 
 } // namespace wolfscript

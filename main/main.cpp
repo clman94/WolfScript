@@ -4,33 +4,17 @@
 #include <fstream>
 #include <sstream>
 
-std::string load_file_as_string(const std::string& pPath)
-{
-	std::ifstream stream(pPath.c_str());
-	if (!stream.good())
-	{
-		std::cout << "Could not load file \"" << pPath << "\"\n";
-		std::getchar();
-		return{};
-	}
-	std::stringstream sstr;
-	sstr << stream.rdbuf();
-	return sstr.str();
-}
-
 int main()
 {
 	using namespace wolfscript;
 
 	// Try catch commented out so the debugger can catch the exceptions instead
 	//try {
-	std::string code = load_file_as_string("../script.txt");
-
-	parser myparser;
-	auto ast = myparser.parse(tokenize(code));
+	script myscript;
+	myscript.load_file("../script.wolf");
 
 	AST_viewer viewer;
-	ast->visit(&viewer);
+	myscript.get_ast()->visit(&viewer);
 
 	value_type::object myobj;
 	myobj.members["x"] = 23;
@@ -44,7 +28,7 @@ int main()
 	};
 	myobj.members[object_behavior::to_string] = mytostring;
 	value_type::callable myassign;
-	myassign.function = [](const std::vector<value_type>& pArgs) -> value_type
+	myassign.function = [](const value_type::arg_list& pArgs) -> value_type
 	{
 		auto obj = pArgs[0].get<value_type::object>();
 		auto obj2 = pArgs[1].get<value_type::object>();
@@ -54,31 +38,7 @@ int main()
 	};
 	myobj.members[object_behavior::assign] = myassign;
 
-	interpretor interp;
-
-	// Register the string factory
-	// This will generate the object to access and modify the string
-	interp.set_string_factory([](const std::string& pString) -> value_type
-	{
-		value_type::object obj;
-		obj.members[object_behavior::object] = pString;
-		obj.members[object_behavior::to_string] = value_type::callable{
-			[](const value_type::arg_list& pArgs) -> value_type
-		{
-			auto obj = pArgs[0].get<const value_type::object>();
-			auto str = obj->members.find(object_behavior::object)->second.get<const std::string>();
-			return *str;
-		}};
-		obj.members["length"] = value_type::callable{
-			[](const value_type::arg_list& pArgs) -> value_type
-		{
-			auto obj = pArgs[0].get<const value_type::object>();
-			auto str = obj->members.find(object_behavior::object)->second.get<const std::string>();
-			return str->length();
-		}};
-		return std::move(obj);
-	});
-	interp["myobj"] = std::ref(myobj);
+	myscript["myobj"] = std::ref(myobj);
 
 	auto printfun = [](const std::string& pStr)
 	{
@@ -94,13 +54,10 @@ int main()
 		std::cout << "print(" << pArgs[0].to_string() << ")\n";
 		return{};
 	};
-	interp["print"] = value_type::create_const(&myprint);
+	myscript["print"] = value_type::create_const(&myprint);
 
-	const int pie = 2;
-	interp["pie"] = &pie;
-	interp["pie"] = interp["pie"] + interp["pie"];
-
-	interp.interpret(ast.get());		
+	myscript.execute();
+		
 	/*}
 	catch (exception::tokenization_error& e)
 	{

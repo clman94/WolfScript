@@ -3,6 +3,7 @@
 #include "parser.hpp"
 #include "value_type.hpp"
 #include "exception.hpp"
+#include "common.hpp"
 #include <iostream>
 
 namespace wolfscript
@@ -62,6 +63,8 @@ private:
 	typedef std::map<std::string, value_type> scope_t;
 	std::list<scope_t> mScope_stack;
 };
+
+
 
 class interpretor :
 	private AST_visitor
@@ -174,8 +177,6 @@ private:
 		{
 			value_type l = visit_for_value(pNode->children[0]);
 			value_type r = visit_for_value(pNode->children[1]);
-			if (!l.get_type_info().is_arithmetic || !r.get_type_info().is_arithmetic)
-				throw exception::interpretor_error("These types are not arithmic types");
 			mResult_value = value_type::binary_operation(pNode->type, l, r);
 		}
 	}
