@@ -3,11 +3,21 @@
 #include "parser.hpp"
 #include "value_type.hpp"
 #include "exception.hpp"
+#include "callable.hpp"
 #include "common.hpp"
+#include "arithmetic.hpp"
+
 #include <iostream>
 
 namespace wolfscript
 {
+
+enum control_flags : std::size_t
+{
+	ctrl_return,
+	ctrl_break,
+	ctrl_continue,
+};
 
 class symbol_table
 {
@@ -29,7 +39,30 @@ public:
 
 	value_type& add(const std::string& pName, const value_type& pValue)
 	{
-		return mScope_stack.front()[pName] = pValue;
+		auto iter = mScope_stack.front().find(pName);
+		if (iter != mScope_stack.front().end())
+		{
+			if (pValue.get<const callable>())
+			{
+				if (auto overloader = iter->second.get<const callable_overloader>())
+				{
+					// Add to a current overloader in scope
+					overloader->add(pValue);
+				}
+				else if (iter->second.get<const callable>())
+				{
+					// Swap it out for an overloader
+					callable_overloader overloader;
+					overloader.add(pValue);
+					overloader.add(iter->second);
+					iter->second = overloader;
+				}
+			}
+		}
+		else
+		{
+			return mScope_stack.front()[pName] = pValue;
+		}
 	}
 
 	value_type* lookup(const std::string& pName)
@@ -41,6 +74,26 @@ public:
 				return &iter->second;
 		}
 		return nullptr;
+	}
+
+	value_type* lookup_current_scope(const std::string& pName)
+	{
+		auto iter = mScope_stack.front().find(pName);
+		if (iter != mScope_stack.front().end())
+			return &iter->second;
+		return nullptr;
+	}
+
+	std::vector<value_type*> get_all_matches(const std::string& pName)
+	{
+		std::vector<value_type*> result;
+		for (auto& i : mScope_stack)
+		{
+			auto iter = i.find(pName);
+			if (iter != i.end())
+				result.push_back(&iter->second);
+		}
+		return result;
 	}
 
 	bool exists(const std::string& pName) const
@@ -64,9 +117,7 @@ private:
 	std::list<scope_t> mScope_stack;
 };
 
-
-
-class interpretor :
+class interpreter :
 	private AST_visitor
 {
 public:
@@ -78,6 +129,16 @@ public:
 		mReturn_request = false;
 	}
 
+	void interpret(const AST_node::ptr& mRoot)
+	{
+		interpret(mRoot.get());
+	}
+
+	void add(const std::string& pName, value_type pVal)
+	{
+		mSymbols.add(pName, pVal);
+	}
+
 	value_type& operator[](const std::string& pIdentifier)
 	{
 		return mSymbols[pIdentifier];
@@ -86,6 +147,12 @@ public:
 	void set_string_factory(string_factory pFactory)
 	{
 		mString_factory = pFactory;
+	}
+
+	template <typename T>
+	void add_type(const std::string& pStr)
+	{
+		mTypes.emplace_back(std::make_pair(pStr, type_info::create<T>()));
 	}
 
 private:
@@ -123,13 +190,13 @@ private:
 	// Declare variable
 	virtual void dispatch(AST_node_variable* pNode) override
 	{
-		mSymbols.add(std::string(pNode->identifier), visit_for_value(pNode->children[0]).copy());
+		mSymbols.add(std::string(pNode->identifier), visit_for_value(pNode->children[0]));
 	}
 
 	virtual void dispatch(AST_node_unary_op* pNode)
 	{
 		value_type val = visit_for_value(pNode->children[0]);
-		mResult_value = val.unary_operation(pNode->type, val);
+		mResult_value = arithmetic_unary_operation(pNode->type, val);
 	}
 
 	virtual void dispatch(AST_node_binary_op* pNode) override
@@ -137,47 +204,23 @@ private:
 		if (pNode->type == token_type::period)
 		{
 			value_type l = visit_for_value(pNode->children[0]);
-
-			// Cast the r to an identifier node. 
-			// FIXME: Move this to the parser instead
 			AST_node_identifier* r_id
 				= dynamic_cast<AST_node_identifier*>(pNode->children[1].get());
 			if (!r_id)
 				throw exception::interpretor_error("Expected identifier");
 
-			// FIXME: Allow non-const access
-			auto obj = l.get<const value_type::object>();
-
-			// Find the member object and return it
-			auto member = obj->members.find(std::string(r_id->identifier));
-			if (member == obj->members.end())
-				throw exception::interpretor_error("Could not find member");
-
-			// If it's a callable, create a delegate callable for calling the method of a specific instance
-			if (auto func = member->second.get<const value_type::callable>())
-			{
-				// The capture will keep the object alive during the lifetime of this return value 
-				mResult_value = value_type::callable{
-					[l, func](const value_type::arg_list& pArgs)->value_type
-				{
-					value_type::arg_list args;
-					args.push_back(l);
-					args.insert(args.end(), pArgs.begin(), pArgs.end());
-					return func->function(args);
-				}
-				};
-			}
-			else
-			{
-				// Return the reference to the member
-				mResult_value = member->second;
-			}
+			// Call function to access the member
+			mResult_value = call_function(std::string(r_id->identifier), { l });
 		}
 		else
 		{
 			value_type l = visit_for_value(pNode->children[0]);
 			value_type r = visit_for_value(pNode->children[1]);
-			mResult_value = value_type::binary_operation(pNode->type, l, r);
+			
+			if (l.is_arithmetic() && r.is_arithmetic())
+				mResult_value = arithmetic_binary_operation(pNode->type, l, r);
+			else
+				mResult_value = call_function(object_behavior::from_token_type(pNode->type), { l, r });
 		}
 	}
 
@@ -186,10 +229,10 @@ private:
 		switch (pNode->related_token.type)
 		{
 		case token_type::integer:
-			mResult_value = value_type::create_const(std::forward<int>(std::get<int>(pNode->related_token.value)));
+			mResult_value = std::cref(std::get<int>(pNode->related_token.value));
 			break;
 		case token_type::string:
-			mResult_value = value_type::create_const(mString_factory(std::get<std::string>(pNode->related_token.value)));
+			mResult_value = std::cref(std::get<std::string>(pNode->related_token.value));
 			break;
 		default:
 			throw exception::interpretor_error("Unsupported constant type");
@@ -209,18 +252,31 @@ private:
 	{
 		value_type c = visit_for_value(pNode->children[0]);
 		
-		std::vector<value_type> args;
+		arg_list args;
+		std::vector<type_info> arg_types;
 		for (std::size_t i = 1; i < pNode->children.size(); i++)
+		{
 			args.emplace_back(visit_for_value(pNode->children[i]));
+			arg_types.push_back(args.back().get_type_info());
+		}
 
-		auto func = c.get<const value_type::callable>();
-		mResult_value = func->function(args);
+		if (auto overloader = c.get<const callable_overloader>())
+		{
+			auto& func = overloader->find(arg_types, mCaster);
+			mResult_value = func.function(args);
+		}
+		else if (auto func = c.get<const callable>())
+		{
+			if (!func->match(arg_types, mCaster))
+				throw exception::interpretor_error("Cannot find function");
+			mResult_value = func->function(args);
+		}
 	}
 
 	virtual void dispatch(AST_node_if* pNode) override
 	{
 		// If
-		if (visit_for_value(pNode->children[0]).get<bool>(mCaster))
+		if (mCaster.cast<bool>(visit_for_value(pNode->children[0])))
 		{
 			pNode->children[1]->visit(this);
 			return;
@@ -233,7 +289,7 @@ private:
 			{
 				std::size_t condition_idx = i * 2 + 2;
 				std::size_t body_idx = i * 2 + 3;
-				if (visit_for_value(pNode->children[condition_idx]).get<bool>(mCaster))
+				if (mCaster.cast<bool>(visit_for_value(pNode->children[condition_idx])))
 				{
 					pNode->children[body_idx]->visit(this);
 					return;
@@ -248,24 +304,56 @@ private:
 
 	virtual void dispatch(AST_node_function_declaration* pNode) override
 	{
-		value_type::callable func;
+		callable func;
+
+		if (pNode->has_return_type)
+		{
+			auto type = get_type(pNode->return_type.text);
+			if (!type)
+				throw exception::interpretor_error("Invalid return type");
+			func.return_type = *type;
+		}
+		else
+		{
+			func.return_type = type_info::create<value_type>();
+		}
+
+		for (auto& i : pNode->parameters)
+		{
+			if (i.has_type)
+			{
+				auto type = get_type(i.type.text);
+				if (!type)
+					throw exception::interpretor_error("Invalid parameter type");
+				func.parameter_types.push_back(*type);
+			}
+			else
+			{
+				func.parameter_types.push_back(type_info::create<value_type>());
+			}
+		}
+
+
 		func.function = [this, pNode](const std::vector<value_type>& pArgs)->value_type
 		{
-			if (pArgs.size() != pNode->parameters.size())
-				throw exception::interpretor_error("Invalid argument count");
 			mSymbols.push_scope();
+			// Add the parameters to the scope
 			for (std::size_t i = 0; i < pArgs.size(); i++)
-				mSymbols.add(std::string(pNode->parameters[i]), pArgs[i]);
+				mSymbols.add(std::string(pNode->parameters[i].identifier), pArgs[i]);
 			
+			// Interpret the functions body nodes
 			value_type retval = visit_for_value(pNode->children[0]);
-			mReturn_request = false; // Clear the request
+			mReturn_request = false; // Clear the return request
 			mSymbols.pop_scope();
 			return retval;
 		};
 		if (pNode->identifier.empty())
 			mResult_value = func;
 		else
+		{
 			mSymbols.add(std::string(pNode->identifier), func);
+
+		}
 	}
 
 	virtual void dispatch(AST_node_return* pNode) override
@@ -275,10 +363,51 @@ private:
 	}
 
 private:
+	value_type call_function(const std::string& pName, const arg_list& pArgs)
+	{
+		auto matches = mSymbols.get_all_matches(pName);
+		if (matches.empty())
+			throw exception::interpretor_error("No function matches");
+
+		callable_overloader overloader;
+		for (auto i : matches)
+		{
+			if (i->get<const callable>())
+			{
+				overloader.add(*i);
+			}
+			else if (auto other = i->get<const callable_overloader>())
+			{
+				overloader.add(*other);
+			}
+		}
+
+		const callable& c = overloader.find(pArgs, mCaster);
+		return c.function(pArgs);
+	}
+
+	const type_info* get_type(const std::string_view& pStr) const
+	{
+		for (auto& i : mTypes)
+			if (i.first == pStr)
+				return &i.second;
+		return nullptr;
+	}
+
+	const std::string* get_type(const type_info& pType) const
+	{
+		for (auto& i : mTypes)
+			if (i.second.bare_equal(pType))
+				return &i.first;
+		return nullptr;
+	}
+
+private:
 	bool mReturn_request{ false };
+	std::vector<std::pair<std::string, type_info>> mTypes;
 	string_factory mString_factory;
 	value_type mResult_value;
-	value_type::cast_list mCaster;
+	cast_list mCaster;
 	symbol_table mSymbols;
 };
 

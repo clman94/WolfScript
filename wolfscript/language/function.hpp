@@ -1,6 +1,7 @@
 #pragma once
 
 #include "value_type.hpp"
+#include "callable.hpp"
 #include "common.hpp"
 #include <functional>
 
@@ -86,17 +87,16 @@ struct function_signature_types
 
 struct generic_function_binding
 {
-	function_signature_types types;
-	value_type::generic_function function;
-	bool is_const_member;
+	callable function;
 
 	template <typename Tfunc, bool pIs_member, bool pIs_const, typename Tret, typename...Tparams>
 	static generic_function_binding create(Tfunc&& pFunc, function_signature<Tret, function_params<Tparams...>, pIs_member, pIs_const>)
 	{
 		generic_function_binding binding;
-		binding.function = pFunc;
-		binding.types = function_signature_types::create<Tret, Tparams...>();
-		binding.is_const_member = pIs_const;
+		binding.function.function = pFunc;
+		const auto types = function_signature_types::create<Tret, Tparams...>();
+		binding.function.return_type = types.return_type;
+		binding.function.parameter_types = types.param_types;
 		return binding;
 	}
 };
@@ -136,29 +136,20 @@ auto get_arg(const value_type& pValue)
 	}
 	else
 	{
-		constexpr bool is_const_value = std::is_const_v<std::remove_pointer_t<T>>;
+		constexpr bool is_const_value = std::is_const_v<std::remove_reference_t<std::remove_pointer_t<T>>>
+			|| (!std::is_reference_v<T> && !std::is_pointer_v<T>);
 		using type = add_const_cond_t<is_const_value, strip_bare_t<T>>;
 
-		type* ptr = nullptr;
-
-		// Get the pointer to the underlaying application object
-		if (auto obj = pValue.get<const value_type::object>())
-		{
-			auto obj_iter = obj->members.find(object_behavior::object);
-			ptr = obj_iter->second.get<type>();
-		}
-		else
-		{
-			ptr = pValue.get<type>();
-		}
-
+		type* ptr = pValue.get<type>();
 		if (!ptr)
 			throw exception::interpretor_error("Invalid argument");
 
 		if constexpr (std::is_pointer_v<T>)
 			return ptr;
-		else
+		else if constexpr (std::is_lvalue_reference_v<T>)
 			return std::ref(*ptr);
+		else
+			return *pValue.get<const strip_bare_t<T>>();
 	}
 }
 
@@ -167,7 +158,7 @@ generic_function_binding make_proxy_function(Tfunc&& pFunc,
 	function_signature<Tret, function_params<Tparams...>, pIs_member, pIs_const> pSig,
 	std::index_sequence<pParams_index...>)
 {
-	auto proxy = [pFunc = std::forward<Tfunc>(pFunc)](const value_type::arg_list& pArgs) -> value_type
+	auto proxy = [pFunc = std::forward<Tfunc>(pFunc)](const arg_list& pArgs) -> value_type
 	{
 		auto invoke = [&]()
 		{

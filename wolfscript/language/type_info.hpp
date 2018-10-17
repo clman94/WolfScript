@@ -9,6 +9,7 @@ namespace wolfscript
 template <typename T>
 using strip_bare_t = std::remove_pointer_t<std::decay_t<T>>;
 
+
 struct type_info
 {
 	bool is_const{ false };
@@ -24,8 +25,8 @@ struct type_info
 
 	const std::type_info* stdtypeinfo{ &typeid(void) };
 
-	type_info() = default;
-	type_info(bool pIs_const,
+	constexpr type_info() = default;
+	constexpr type_info(bool pIs_const,
 		bool pIs_reference,
 		bool pIs_pointer,
 		bool pIs_arithmic,
@@ -36,9 +37,14 @@ struct type_info
 		is_arithmetic(pIs_arithmic),
 		stdtypeinfo(pType)
 	{}
-	type_info(const type_info&) = default;
-	type_info(type_info&&) = default;
-	type_info& operator=(const type_info&) = default;
+	constexpr type_info(const type_info&) = default;
+	constexpr type_info(type_info&&) = default;
+	constexpr type_info& operator=(const type_info&) = default;
+
+	bool bare_equal(const std::type_info& pOther) const
+	{
+		return *stdtypeinfo == pOther;
+	}
 
 	bool bare_equal(const type_info& pOther) const
 	{
@@ -52,7 +58,7 @@ struct type_info
 
 	// Create a type_info from a C++ type
 	template <typename T>
-	static type_info create()
+	constexpr static type_info create()
 	{
 		using type_bare = strip_bare_t<T>;
 		return type_info(

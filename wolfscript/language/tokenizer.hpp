@@ -73,9 +73,6 @@ token tokenize_identifier(std::string_view& pView, text_position& pPosition)
 	{
 		{"var" , token_type::kw_var},
 		{"const", token_type::kw_const},
-		{"int" , token_type::kw_int},
-		{"uint" , token_type::kw_uint},
-		{"float" , token_type::kw_float},
 		{"if" , token_type::kw_if},
 		{"else" , token_type::kw_else},
 		{"for" , token_type::kw_for},

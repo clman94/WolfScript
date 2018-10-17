@@ -55,13 +55,15 @@ enum class token_type
 	eol, // End of line
 	eof, // End of file
 
-	// Keywords
-	kw_var,
-	kw_const,
+	// Type Keywords
 	kw_int,
 	kw_uint,
 	kw_float,
 	kw_string,
+
+	// Keywords
+	kw_var,
+	kw_const,
 	kw_if,
 	kw_else,
 	kw_for,
@@ -117,12 +119,13 @@ constexpr const char* token_name[static_cast<unsigned int>(token_type::count)] =
 	"End of line",
 	"End of file",
 
-	"Keyword var",
-	"Keyword const",
 	"Keyword int",
 	"Keyword uint",
 	"Keyword float",
 	"Keyword string",
+
+	"Keyword var",
+	"Keyword const",
 	"Keyword if",
 	"Keyword else",
 	"Keyword for",

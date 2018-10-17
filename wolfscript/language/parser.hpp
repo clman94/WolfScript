@@ -36,6 +36,8 @@ struct AST_visitor
 
 struct AST_node
 {
+	using ptr = std::unique_ptr<AST_node>;
+
 	virtual ~AST_node() {}
 	virtual void visit(AST_visitor*) = 0;
 
@@ -107,7 +109,16 @@ struct AST_node_function_declaration :
 	AST_node_impl<AST_node_function_declaration>
 {
 	std::string_view identifier;
-	std::vector<std::string_view> parameters;
+	struct param
+	{
+		std::string_view identifier;
+		bool has_type{ false };
+		token type;
+	};
+	std::vector<param> parameters;
+
+	bool has_return_type{ false };
+	token return_type;
 };
 
 struct AST_node_return :
@@ -459,6 +470,21 @@ private:
 			throw exception::parse_error("Unexpected token", *mIter);
 	}
 
+	void parse_parameter(AST_node_function_declaration* pNode)
+	{
+		expect(token_type::identifier, "Expected identifier for parameter");
+		AST_node_function_declaration::param param;
+		param.identifier = mIter->text;
+		advance(); // Skip identifier
+		if (mIter->type == token_type::identifier)
+		{
+			param.has_type = true;
+			param.type = *mIter;
+			advance(); // Skip type identifier
+		}
+		pNode->parameters.push_back(param);
+	}
+
 	std::unique_ptr<AST_node> function_declaration(bool pAnonymous)
 	{
 		auto node = std::make_unique<AST_node_function_declaration>();
@@ -474,19 +500,22 @@ private:
 		advance(); // Skip (
 		if (mIter->type != token_type::r_parenthesis)
 		{
-			expect(token_type::identifier, "Expected identifier for parameter");
-			node->parameters.push_back(mIter->text);
-			advance(); // Skip identifier
+			parse_parameter(node.get());
 			while (mIter->type == token_type::separator)
 			{
 				advance(); // Skip ,
-				expect(token_type::identifier, "Expected identifier for parameter");
-				node->parameters.push_back(mIter->text);
-				advance(); // Skip identifier
+				parse_parameter(node.get());
 			}
 		}
 		expect(token_type::r_parenthesis, "Expected ) for function");
 		advance(); // Skip )
+		if (mIter->type == token_type::identifier)
+		{
+			node->has_return_type = true;
+			node->return_type = *mIter;
+			advance(); // Skip type identifier
+		}
+
 		expect(token_type::l_brace, "Expected { for function");
 		node->children.emplace_back(parse_compound_statement());
 		return node;
@@ -619,7 +648,7 @@ public:
 			std::cout << "Identifier: " << pNode->identifier << " ";
 		std::cout << "Parameters: ";
 		for (const auto& i : pNode->parameters)
-			std::cout << i << ", ";
+			std::cout << i.identifier << ", ";
 		std::cout << ">\n";
 		++mIndent;
 		pNode->children[0]->visit(this);
