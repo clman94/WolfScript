@@ -39,12 +39,10 @@ public:
 		// Check for const correctness
 		bool correct_const = (pFrom.is_const && pTo.is_const) || (!pFrom.is_const && pTo.is_const) ||
 			(!pFrom.is_const && !pTo.is_const);
-		if (!correct_const)
-			return {};
 
 		// Check for the same type or generic type
 		if (pTo.bare_equal(type_info::create<value_type>()) ||
-			pTo.bare_equal(pFrom))
+			(pTo.bare_equal(pFrom) && correct_const))
 		{
 			// Just return a mirroring function
 			return [](type_info, value_type pVal) -> value_type
@@ -52,6 +50,9 @@ public:
 				return pVal;
 			};
 		}
+
+		if (!correct_const)
+			return {};
 
 		// Find the appropriate casting function
 		for (const auto& i : mEntries)

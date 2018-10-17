@@ -62,7 +62,7 @@ struct type_info
 	{
 		using type_bare = strip_bare_t<T>;
 		return type_info(
-			std::is_const<std::remove_pointer_t<T>>::value,
+			std::is_const<std::remove_pointer_t<std::remove_reference_t<T>>>::value,
 			std::is_reference<T>::value,
 			std::is_pointer<T>::value,
 			std::is_arithmetic<type_bare>::value,

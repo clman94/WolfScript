@@ -130,7 +130,6 @@ private:
 			return mType_info.bare_equal(type_info::create<T>());
 		}
 
-
 		type_info mType_info;
 		void* mPtr;
 		const void* mPtr_c;

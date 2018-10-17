@@ -1,56 +1,9 @@
-/*
-function str_test()
-{
-	var str1 = "eeey";
-	var str2 = " aaaah";
-
-	str1 += str2;
-}
-print(str_test());
-
-function max(a, b)
-{
-	if (a > b)
-		return a;
-	else
-		return b;
-}
-
-max(23, 23);
-
-function test_return_value()
-{
-	return max(2, 4) + max(2, 3);
-}
-
-function test_recusion(val)
-{
-	if (val <= 0)
-		return 1;
-	print(val);
-	return test_recusion(val - 1) + test_recusion(val - 1);
-}
-
-//print(test_recusion(5));
-
-var iterations = 0;
-
-function fib(n)
-{
-	iterations += 1;
-	if (n <= 1)
-		return n;
-	return fib(n - 1) + fib(n - 2);
-}
-print(fib(9));
-print(iterations);
-*/
 
 // Specialized overload for int
-function test_func(a int)
+function test_func(a int, b int)
 {
 	print("int");
-	print(a);
+	print(a + b);
 }
 
 // Generic overload (no specified type). This is chosen if
@@ -61,48 +14,16 @@ function test_func(a)
 	print(a);
 }
 
+//test_func(1, 1);
 test_func(34);
-test_func("eeeey\n");
+//test_func("eeeey\n");
 
 // Create empty string
-var str = string();
+/*var str = string();
 // = operator overload to assign string type
 str = "eeey";
 // Method calling
 str.myfunc();
 
 print("pie" + "a");
-
-
-/*
-class myclass
-{
-	var pit int;
-	
-	function operator + (const right myclass) myclass
-	{
-		
-	}
-}
-
-
-// Concepts from c++
-
-// Define a set of requirements
-concept EqualityComparable(const val ref)
-{
-	return traits::has_method(val. traits::type("=="));
-}
-
-function operator +(const l [EqualityComparable] ref, const r myclass ref) myclass
-{
-	var ret = myclass();
-	ret.pit = l.pit + r.pit;
-	return ret;
-}
-
-function operator+(const r myclass ref, const l [EqualityComparable] ref)
-{
-	return operator+(l, r);
-}
 */
