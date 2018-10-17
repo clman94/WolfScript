@@ -13,6 +13,7 @@ struct AST_node_block;
 struct AST_node_variable;
 struct AST_node_unary_op;
 struct AST_node_binary_op;
+struct AST_node_member_accessor;
 struct AST_node_constant;
 struct AST_node_identifier;
 struct AST_node_function_call;
@@ -26,6 +27,7 @@ struct AST_visitor
 	virtual void dispatch(AST_node_variable*) {}
 	virtual void dispatch(AST_node_unary_op*) {}
 	virtual void dispatch(AST_node_binary_op*) {}
+	virtual void dispatch(AST_node_member_accessor*) {}
 	virtual void dispatch(AST_node_constant*) {}
 	virtual void dispatch(AST_node_identifier*) {}
 	virtual void dispatch(AST_node_function_call*) {}
@@ -74,11 +76,16 @@ struct AST_node_unary_op :
 	token_type type;
 };
 
-
 struct AST_node_binary_op :
 	AST_node_impl<AST_node_binary_op>
 {
 	token_type type;
+};
+
+struct AST_node_member_accessor :
+	AST_node_impl<AST_node_member_accessor>
+{
+	std::string_view identifier;
 };
 
 struct AST_node_constant :
@@ -383,47 +390,63 @@ private:
 
 	std::unique_ptr<AST_node> parse_multiplicative_expression()
 	{
-		return parse_binary_expression({ token_type::mul, token_type::div }, &parser::parse_function_call);
+		return parse_binary_expression({ token_type::mul, token_type::div }, &parser::parse_postfix_expression);
 	}
 
-
-	std::unique_ptr<AST_node> parse_function_call()
+	std::unique_ptr<AST_node> parse_postfix_expression()
 	{
-		auto factor = parse_member_accessor();
-		if (mIter->type == token_type::l_parenthesis)
+		auto node = parse_factor();
+
+		bool has_postfix = false;
+		do {
+			has_postfix = false;
+			if (mIter->type == token_type::period)
+			{
+				advance(); // Skip .
+				expect(token_type::identifier, "Expected identifier");
+				auto access_node = std::make_unique<AST_node_member_accessor>();
+				access_node->identifier = mIter->text;
+				access_node->children.emplace_back(std::move(node));
+				node = std::move(access_node);
+				advance(); // Skip identifier
+				has_postfix = true;
+			}
+			else if (mIter->type == token_type::l_parenthesis)
+			{
+				node = parse_function_call(std::move(node));
+				has_postfix = true;
+			}
+		} while (has_postfix);
+
+		return node;
+	}
+
+	std::unique_ptr<AST_node> parse_function_call(std::unique_ptr<AST_node> pCaller)
+	{
+		auto node = std::make_unique<AST_node_function_call>();
+		node->children.emplace_back(std::move(pCaller));
+		advance(); // Skip (
+
+		// No arguments
+		if (mIter->type == token_type::r_parenthesis)
 		{
-			auto node = std::make_unique<AST_node_function_call>();
-			node->children.emplace_back(std::move(factor));
-			advance(); // Skip (
-
-			// No arguments
-			if (mIter->type == token_type::r_parenthesis)
-			{
-				advance(); // Skip )
-				return node;
-			}
-
-			// First parameter
-			node->children.emplace_back(parse_expression());
-
-			while (mIter->type == token_type::separator)
-			{
-				advance(); // Skip ,
-				node->children.emplace_back(parse_expression());
-			}
-
-			expect(token_type::r_parenthesis, "Expected )");
 			advance(); // Skip )
-
 			return node;
 		}
-		else
-			return factor;
-	}
 
-	std::unique_ptr<AST_node> parse_member_accessor()
-	{
-		return parse_binary_expression({ token_type::period }, &parser::parse_factor);
+		// First parameter
+		node->children.emplace_back(parse_expression());
+
+		while (mIter->type == token_type::separator)
+		{
+			advance(); // Skip ,
+			node->children.emplace_back(parse_expression());
+		}
+
+		expect(token_type::r_parenthesis, "Expected )");
+		advance(); // Skip )
+
+		return node;
 	}
 
 	std::unique_ptr<AST_node> parse_factor()

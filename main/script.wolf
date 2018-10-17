@@ -19,11 +19,20 @@ test_func(34);
 //test_func("eeeey\n");
 
 // Create empty string
-/*var str = string();
+var str = string();
 // = operator overload to assign string type
 str = "eeey";
 // Method calling
 str.myfunc();
 
-print("pie" + "a");
-*/
+"pie".myfunc();
+
+print("pie" + string("a"));
+
+
+function afunc(this string)
+{
+	return print("hi " + this + "\n");
+}
+
+string("lol").afunc;

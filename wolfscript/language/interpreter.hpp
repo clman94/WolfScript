@@ -201,27 +201,21 @@ private:
 
 	virtual void dispatch(AST_node_binary_op* pNode) override
 	{
-		if (pNode->type == token_type::period)
-		{
-			value_type l = visit_for_value(pNode->children[0]);
-			AST_node_identifier* r_id
-				= dynamic_cast<AST_node_identifier*>(pNode->children[1].get());
-			if (!r_id)
-				throw exception::interpretor_error("Expected identifier");
-
-			// Call function to access the member
-			mResult_value = call_function(std::string(r_id->identifier), { l });
-		}
-		else
-		{
-			value_type l = visit_for_value(pNode->children[0]);
-			value_type r = visit_for_value(pNode->children[1]);
+		value_type l = visit_for_value(pNode->children[0]);
+		value_type r = visit_for_value(pNode->children[1]);
 			
-			if (l.is_arithmetic() && r.is_arithmetic())
-				mResult_value = arithmetic_binary_operation(pNode->type, l, r);
-			else
-				mResult_value = call_function(object_behavior::from_token_type(pNode->type), { l, r });
-		}
+		if (l.is_arithmetic() && r.is_arithmetic())
+			mResult_value = arithmetic_binary_operation(pNode->type, l, r);
+		else
+			mResult_value = call_function(object_behavior::from_token_type(pNode->type), { l, r });
+	}
+
+	virtual void dispatch(AST_node_member_accessor* pNode) override
+	{
+		value_type l = visit_for_value(pNode->children[0]);
+
+		// Call function to access the member
+		mResult_value = call_function(std::string(pNode->identifier), { l });
 	}
 
 	virtual void dispatch(AST_node_constant* pNode) override

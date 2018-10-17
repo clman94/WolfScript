@@ -24,6 +24,9 @@ int main()
 	const std::string code = load_file_as_string("../script.wolf");
 	wolfscript::AST_node::ptr ast = parser.parse(wolfscript::tokenize(code));
 
+	wolfscript::AST_viewer viewer;
+	ast->visit(&viewer);
+
 	wolfscript::interpreter interpreter;
 	interpreter.add_type<int>("int");
 	interpreter.add_type<std::string>("string");
