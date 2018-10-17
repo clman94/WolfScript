@@ -612,6 +612,14 @@ public:
 		--mIndent;
 	}
 
+	virtual void dispatch(AST_node_member_accessor* pNode)
+	{
+		std::cout << get_indent() << "Member Accessor <Identifier: " << pNode->identifier << ">\n";
+		++mIndent;
+		pNode->children[0]->visit(this);
+		--mIndent;
+	}
+
 	virtual void dispatch(AST_node_if* pNode)
 	{
 		std::cout << get_indent() << "If Statement\n";
