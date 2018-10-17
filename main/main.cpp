@@ -30,22 +30,33 @@ int main()
 	interpreter.add("string", wolfscript::function([](const std::string& pStr)
 	{
 		return std::string(pStr);
-	}).function);
+	}));
 	interpreter.add("string", wolfscript::function([]()
 	{
 		return std::string();
-	}).function);
+	}));
 	interpreter.add(wolfscript::object_behavior::add, wolfscript::function([](const std::string& l, const std::string& r)
 	{
 		return l + r;
-	}).function);
+	}));
+	interpreter.add(wolfscript::object_behavior::assign, wolfscript::function([](std::string& l, const std::string& r)
+	{
+		l = r;
+	}));
+	interpreter.add("myfunc", wolfscript::function([](const std::string& pThis)
+	{
+		return wolfscript::function([pThis]()
+		{
+			std::cout << "myfunc" << pThis << "\n";
+		});
+	}));
 	interpreter.add("print", wolfscript::function([](const std::string& pStr)
 	{
 		std::cout << pStr;
-	}).function);
+	}));
 	interpreter.add("print", wolfscript::function([](int pInt)
 	{
 		std::cout << pInt;
-	}).function);
+	}));
 	interpreter.interpret(ast);
 }

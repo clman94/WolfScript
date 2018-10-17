@@ -154,7 +154,7 @@ auto get_arg(const value_type& pValue)
 }
 
 template <typename Tfunc, bool pIs_member, bool pIs_const, typename Tret, typename...Tparams, std::size_t...pParams_index>
-generic_function_binding make_proxy_function(Tfunc&& pFunc,
+callable make_proxy_function(Tfunc&& pFunc,
 	function_signature<Tret, function_params<Tparams...>, pIs_member, pIs_const> pSig,
 	std::index_sequence<pParams_index...>)
 {
@@ -175,11 +175,11 @@ generic_function_binding make_proxy_function(Tfunc&& pFunc,
 			return invoke();
 		}
 	};
-	return generic_function_binding::create(std::move(proxy), pSig);
+	return generic_function_binding::create(std::move(proxy), pSig).function;
 }
 
 template <typename Tfunc, bool pIs_member, bool pIs_const, typename Tret, typename...Tparams>
-generic_function_binding make_proxy_function(Tfunc&& pFunc,
+callable make_proxy_function(Tfunc&& pFunc,
 	function_signature<Tret, function_params<Tparams...>, pIs_member, pIs_const> pSig)
 {
 	return make_proxy_function(std::forward<Tfunc>(pFunc), pSig, std::index_sequence_for<Tparams...>{});
@@ -194,7 +194,7 @@ struct this_first_t {};
 constexpr const this_first_t this_first;
 
 template <typename T>
-detail::generic_function_binding function(this_first_t, T&& pFunc)
+callable function(this_first_t, T&& pFunc)
 {
 	using traits = detail::function_signature_traits<typename decltype(&std::decay_t<T>::operator())>;
 	using class_type = detail::first_param<traits::type::param_types>::type;
@@ -208,7 +208,7 @@ detail::generic_function_binding function(this_first_t, T&& pFunc)
 }
 
 template <typename Tret, typename...Tparams>
-detail::generic_function_binding function(this_first_t, Tret(*pFunc)(Tparams...))
+callable function(this_first_t, Tret(*pFunc)(Tparams...))
 {
 	static_assert(sizeof...(Tparams) > 0, "You need to provide at least one parameter for a standalone method");
 	using class_type = detail::first_param<Tparams...>::type;
@@ -221,25 +221,25 @@ detail::generic_function_binding function(this_first_t, Tret(*pFunc)(Tparams...)
 }
 
 template <typename Tret, typename...Tparams>
-detail::generic_function_binding function(Tret(*pFunc)(Tparams...))
+callable function(Tret(*pFunc)(Tparams...))
 {
 	return detail::make_proxy_function(std::move(pFunc), detail::function_signature<Tret, detail::function_params<Tparams...>>{});
 }
 
 template <typename Tret, typename Tclass, typename...Tparams>
-detail::generic_function_binding function(Tret(Tclass::*pFunc)(Tparams...))
+callable function(Tret(Tclass::*pFunc)(Tparams...))
 {
 	return detail::make_proxy_function(std::move(pFunc), detail::function_signature<Tret, detail::function_params<Tclass*, Tparams...>, true>{});
 }
 
 template <typename Tret, typename Tclass, typename...Tparams>
-detail::generic_function_binding function(Tret(Tclass::*pFunc)(Tparams...) const)
+callable function(Tret(Tclass::*pFunc)(Tparams...) const)
 {
 	return detail::make_proxy_function(std::move(pFunc), detail::function_signature<Tret, detail::function_params<const Tclass*, Tparams...>, true, true>{});
 }
 
 template <typename T>
-detail::generic_function_binding function(T&& pFunc)
+callable function(T&& pFunc)
 {
 	using traits = detail::function_signature_traits<typename decltype(&std::decay_t<T>::operator())>;
 	using sig = detail::function_signature<traits::type::return_type, traits::type::param_types>;
