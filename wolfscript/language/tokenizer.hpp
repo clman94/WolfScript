@@ -77,7 +77,9 @@ token tokenize_identifier(std::string_view& pView, text_position& pPosition)
 		{"else" , token_type::kw_else},
 		{"for" , token_type::kw_for},
 		{"function" , token_type::kw_function},
-		{"return" , token_type::kw_return}
+		{"return" , token_type::kw_return},
+		{"break" , token_type::kw_break},
+		{"continue" , token_type::kw_continue}
 	};
 	if (keywords.find(t.text) != keywords.end())
 		t.type = keywords[t.text];

@@ -71,6 +71,8 @@ enum class token_type
 	kw_class,
 	kw_function,
 	kw_return,
+	kw_break,
+	kw_continue,
 
 	count,
 };
@@ -133,6 +135,8 @@ constexpr const char* token_name[static_cast<unsigned int>(token_type::count)] =
 	"Keyword class",
 	"Keyword function",
 	"Keyword return",
+	"Keyword break",
+	"Keyword continue",
 };
 
 // Represents a position in text

@@ -22,6 +22,8 @@ struct AST_node_if;
 struct AST_node_for;
 struct AST_node_function_declaration;
 struct AST_node_return;
+struct AST_node_break;
+struct AST_node_continue;
 
 struct AST_visitor
 {
@@ -38,6 +40,8 @@ struct AST_visitor
 	virtual void dispatch(AST_node_for*) {}
 	virtual void dispatch(AST_node_function_declaration*) {}
 	virtual void dispatch(AST_node_return*) {}
+	virtual void dispatch(AST_node_break*) {}
+	virtual void dispatch(AST_node_continue*) {}
 };
 
 struct AST_node
@@ -157,6 +161,17 @@ struct AST_node_return :
 {
 };
 
+struct AST_node_break :
+	AST_node_impl<AST_node_break>
+{
+};
+
+struct AST_node_continue :
+	AST_node_impl<AST_node_continue>
+{
+};
+
+
 template<typename Tto, typename Tfrom>
 inline std::unique_ptr<Tto> static_unique_pointer_cast(std::unique_ptr<Tfrom>&& pOld)
 {
@@ -208,6 +223,20 @@ private:
 		else if (mIter->type == token_type::kw_for)
 		{
 			return parse_for_statement();
+		}
+		else if (mIter->type == token_type::kw_break)
+		{
+			advance(); // Skip break
+			expect(token_type::eol, "Expected ;");
+			advance(); // Skip ;
+			return std::make_unique<AST_node_break>();
+		}
+		else if (mIter->type == token_type::kw_continue)
+		{
+			advance(); // Skip continue
+			expect(token_type::eol, "Expected ;");
+			advance(); // Skip ;
+			return std::make_unique<AST_node_continue>();
 		}
 		else if (mIter->type == token_type::eol)
 		{
@@ -693,6 +722,32 @@ public:
 		}
 	}
 
+
+	virtual void dispatch(AST_node_for* pNode)
+	{
+		std::cout << get_indent() << "For Statement\n";
+
+		std::cout << get_indent() << "Var/Expression\n";
+		++mIndent;
+		pNode->children[0]->visit(this);
+		--mIndent;
+
+		std::cout << get_indent() << "Conditional\n";
+		++mIndent;
+		pNode->children[1]->visit(this);
+		--mIndent;
+
+		std::cout << get_indent() << "Expression\n";
+		++mIndent;
+		pNode->children[2]->visit(this);
+		--mIndent;
+
+		std::cout << get_indent() << "Body\n";
+		++mIndent;
+		pNode->children[3]->visit(this);
+		--mIndent;
+	}
+
 	virtual void dispatch(AST_node_constant* pNode)
 	{
 		std::cout << get_indent() << "Constant <";
@@ -703,7 +758,6 @@ public:
 		else if (pNode->related_token.type == token_type::floating)
 			std::cout << std::get<float>(pNode->related_token.value);
 		std::cout << ">\n";
-
 	}
 
 	virtual void dispatch(AST_node_identifier* pNode)
@@ -740,6 +794,16 @@ public:
 		++mIndent;
 		pNode->children[0]->visit(this);
 		--mIndent;
+	}
+
+	virtual void dispatch(AST_node_break* pNode)
+	{
+		std::cout << get_indent() << "Break\n";
+	}
+
+	virtual void dispatch(AST_node_continue* pNode)
+	{
+		std::cout << get_indent() << "Continue\n";
 	}
 
 private:

@@ -8,16 +8,11 @@
 #include "arithmetic.hpp"
 
 #include <iostream>
+#include <bitset>
 
 namespace wolfscript
 {
 
-enum control_flags : std::size_t
-{
-	ctrl_return,
-	ctrl_break,
-	ctrl_continue,
-};
 
 class symbol_table
 {
@@ -126,7 +121,7 @@ public:
 	void interpret(AST_node* mRoot)
 	{
 		mRoot->visit(this);
-		mReturn_request = false;
+		mControl_flags.reset();
 	}
 
 	void interpret(const AST_node::ptr& mRoot)
@@ -179,7 +174,7 @@ private:
 
 			// The return request breaks all scopes.
 			// The result value is retained because it contains the return value.
-			if (mReturn_request)
+			if (mControl_flags.any())
 				break;
 			// Clear the result after each line.
 			mResult_value.clear();
@@ -313,6 +308,17 @@ private:
 
 			pNode->children[3]->visit(this);
 
+			// "continue" just causes all scopes to unwind in the loop
+			// and it loops again like nothing happened
+			mControl_flags[ctrl_continue] = false;
+
+			if (mControl_flags[ctrl_break]
+				|| mControl_flags[ctrl_return])
+			{
+				mControl_flags[ctrl_break] = false;
+				break;
+			}
+
 			mSymbols.pop_scope();
 		}
 
@@ -360,7 +366,7 @@ private:
 			
 			// Interpret the functions body nodes
 			value_type retval = visit_for_value(pNode->children[0]);
-			mReturn_request = false; // Clear the return request
+			mControl_flags.reset();
 			mSymbols.pop_scope();
 			return retval;
 		};
@@ -376,7 +382,17 @@ private:
 	virtual void dispatch(AST_node_return* pNode) override
 	{
 		mResult_value = visit_for_value(pNode->children[0]);
-		mReturn_request = true;
+		mControl_flags[ctrl_return] = true;
+	}
+
+	virtual void dispatch(AST_node_break* pNode) override
+	{
+		mControl_flags[ctrl_break] = true;
+	}
+
+	virtual void dispatch(AST_node_continue* pNode) override
+	{
+		mControl_flags[ctrl_continue] = true;
 	}
 
 private:
@@ -436,7 +452,16 @@ private:
 	}
 
 private:
-	bool mReturn_request{ false };
+	enum control_flags : std::size_t
+	{
+		ctrl_return,
+		ctrl_break,
+		ctrl_continue,
+
+		ctrl_count
+	};
+	std::bitset<ctrl_count> mControl_flags;
+
 	std::vector<std::pair<std::string, type_info>> mTypes;
 	string_factory mString_factory;
 	value_type mResult_value;

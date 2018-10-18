@@ -33,7 +33,22 @@ for (var i = 0; i < 10; i += 1)
 {
 	print(i); print(" ");
 }
+print("\n");
 
+for (var i = 0; i < 10; i += 1)
+{
+	print(i); print(" ");
+	if (i >= 3)
+		break;
+}
+print("\n");
+
+for (var i = 0; i < 10; i += 1)
+{
+	if (i == 5)
+		continue;
+	print(i); print(" ");
+}
 print("\n");
 
 function afunc(this string)
