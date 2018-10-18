@@ -216,9 +216,10 @@ private:
 		{
 			return parse_return_statement();
 		}
-		else if (mIter->type == token_type::kw_function)
+		else if (mIter->type == token_type::kw_function
+			&& can_peek() && peek()->type == token_type::identifier)
 		{
-			return function_declaration(false);
+			return parse_function_declaration(false);
 		}
 		else if (mIter->type == token_type::kw_for)
 		{
@@ -564,7 +565,7 @@ private:
 		}
 		else if (mIter->type == token_type::kw_function)
 		{
-			return function_declaration(true);
+			return parse_function_declaration(true);
 		}
 		else
 			throw exception::parse_error("Unexpected token", *mIter);
@@ -585,7 +586,7 @@ private:
 		pNode->parameters.push_back(param);
 	}
 
-	std::unique_ptr<AST_node> function_declaration(bool pAnonymous)
+	std::unique_ptr<AST_node> parse_function_declaration(bool pAnonymous)
 	{
 		auto node = std::make_unique<AST_node_function_declaration>();
 		node->related_token = *mIter;

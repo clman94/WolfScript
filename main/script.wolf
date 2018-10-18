@@ -1,22 +1,32 @@
 
-// Specialized overload for int
+// #1
+// Specialized overload for 2 ints
 function test_func(a int, b int)
 {
-	print("int");
-	print(a + b);
+	print("#1 Overload ");
+	print(a + b + "\n");
 }
 
+// #2
 // Generic overload (no specified type). This is chosen if
-// all other overloads dont work
+// all other overloads don't work.
 function test_func(a)
 {
-	print("other");
-	print(a);
+	print("#2 Overload ");
+	print(a + "\n");
 }
 
-//test_func(1, 1);
-test_func(34);
-//test_func("eeeey\n");
+// #3
+// Specialized overload of a single string
+function test_func(a string)
+{
+	print("#3 Overload ");
+	print(a + "\n");
+}
+
+test_func(1, 1);      // #1
+test_func(34);        // #2
+test_func("eeeey\n"); // #3
 
 // Create empty string
 var str = string();
@@ -50,6 +60,17 @@ for (var i = 0; i < 10; i += 1)
 	print(i); print(" ");
 }
 print("\n");
+
+{ // Test infinite loop with break
+	var for_iters = 0;
+	for (;;)
+	{
+		for_iters += 1;
+		if (for_iters > 10)
+			break;
+	}
+	print(for_iters + "\n"); // Should be 11
+}
 
 function afunc(this string)
 {

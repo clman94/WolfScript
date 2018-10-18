@@ -46,6 +46,14 @@ int main()
 	{
 		return l + r;
 	}));
+	interpreter.add(wolfscript::object_behavior::add, wolfscript::function([](const std::string& l, int r)
+	{
+		return l + std::to_string(r);
+	}));
+	interpreter.add(wolfscript::object_behavior::add, wolfscript::function([](int l, const std::string& r)
+	{
+		return std::to_string(l) + r;
+	}));
 	interpreter.add(wolfscript::object_behavior::assign, wolfscript::function([](std::string& l, const std::string& r)
 	{
 		l = r;
