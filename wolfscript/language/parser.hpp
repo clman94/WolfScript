@@ -9,6 +9,7 @@
 namespace wolfscript
 {
 
+struct AST_node_empty;
 struct AST_node_block;
 struct AST_node_variable;
 struct AST_node_unary_op;
@@ -18,11 +19,13 @@ struct AST_node_constant;
 struct AST_node_identifier;
 struct AST_node_function_call;
 struct AST_node_if;
+struct AST_node_for;
 struct AST_node_function_declaration;
 struct AST_node_return;
 
 struct AST_visitor
 {
+	virtual void dispatch(AST_node_empty*) {}
 	virtual void dispatch(AST_node_block*) {}
 	virtual void dispatch(AST_node_variable*) {}
 	virtual void dispatch(AST_node_unary_op*) {}
@@ -32,6 +35,7 @@ struct AST_visitor
 	virtual void dispatch(AST_node_identifier*) {}
 	virtual void dispatch(AST_node_function_call*) {}
 	virtual void dispatch(AST_node_if*) {}
+	virtual void dispatch(AST_node_for*) {}
 	virtual void dispatch(AST_node_function_declaration*) {}
 	virtual void dispatch(AST_node_return*) {}
 };
@@ -42,6 +46,7 @@ struct AST_node
 
 	virtual ~AST_node() {}
 	virtual void visit(AST_visitor*) = 0;
+	virtual bool is_empty() const = 0;
 
 	std::vector<std::unique_ptr<AST_node>> children;
 };
@@ -56,7 +61,21 @@ struct AST_node_impl :
 		pVisitor->dispatch(static_cast<T*>(this));
 	}
 
+	virtual bool is_empty() const override
+	{
+		return false;
+	}
+
 	token related_token;
+};
+
+struct AST_node_empty :
+	AST_node_impl<AST_node_empty>
+{
+	virtual bool is_empty() const override
+	{
+		return true;
+	}
 };
 
 struct AST_node_block :
@@ -99,6 +118,11 @@ struct AST_node_if :
 	std::size_t elseif_count{ 0 };
 	// If true, the last child is the else statement
 	bool has_else{ false };
+};
+
+struct AST_node_for :
+	AST_node_impl<AST_node_for>
+{
 };
 
 struct AST_node_identifier :
@@ -181,6 +205,16 @@ private:
 		{
 			return function_declaration(false);
 		}
+		else if (mIter->type == token_type::kw_for)
+		{
+			return parse_for_statement();
+		}
+		else if (mIter->type == token_type::eol)
+		{
+			auto node = std::make_unique<AST_node_empty>();
+			advance(); // Skip ;
+			return node;
+		}
 		else
 		{
 			auto node = parse_expression();
@@ -262,44 +296,58 @@ private:
 
 	std::unique_ptr<AST_node> parse_for_statement()
 	{
+		auto node = std::make_unique<AST_node_for>();
+
 		advance(); // Skip for
 		expect(token_type::l_parenthesis, "Expected ( for 'for' statement");
 		advance(); // Skip (
 		if (mIter->type == token_type::r_parenthesis)
 			throw exception::parse_error("Missing 'for' statement expression", *mIter);
 
-		// First segment
-		if (mIter->type != token_type::eol)
+		// Var statement/expression
+		if (mIter->type == token_type::eol)
 		{
-			if (mIter->type == token_type::kw_var)
-				auto first_node = parse_var(); // Already checks for ;
-			else
-			{
-				auto first_node = parse_expression();
-				expect(token_type::eol, "Expected ;");
-				advance(); // Skip ;
-			}
+			node->children.emplace_back(std::make_unique<AST_node_empty>());
+			advance(); // Skip ;
 		}
-
-		// Second segment
-		if (mIter->type != token_type::eol)
+		else if (mIter->type == token_type::kw_var)
 		{
-			auto second_node = parse_expression();
-
+			node->children.emplace_back(parse_var()); // Already checks for ;
+		}
+		else
+		{
+			node->children.emplace_back(parse_expression());
 			expect(token_type::eol, "Expected ;");
 			advance(); // Skip ;
 		}
 
-		// Third segment
-		if (mIter->type != token_type::r_parenthesis)
+		// Conditional
+		if (mIter->type == token_type::eol)
 		{
-			auto third_node = parse_expression();
-
-			expect(token_type::r_parenthesis, "Expected ;");
-			advance(); // Skip ;
+			node->children.emplace_back(std::make_unique<AST_node_empty>());
 		}
+		else
+		{
+			node->children.emplace_back(parse_expression());
+		}
+		expect(token_type::eol, "Expected ;");
+		advance(); // Skip ;
 
-		return{};
+		// Looped expression
+		if (mIter->type == token_type::r_parenthesis)
+		{
+			node->children.emplace_back(std::make_unique<AST_node_empty>());
+		}
+		else
+		{
+			node->children.emplace_back(parse_expression());
+		}
+		expect(token_type::r_parenthesis, "Expected )");
+		advance(); // Skip )
+
+		node->children.emplace_back(parse_statement());
+
+		return node;
 	}
 
 	std::unique_ptr<AST_node> parse_var()

@@ -29,6 +29,12 @@ str.myfunc();
 
 print("pie" + string("a"));
 
+for (var i = 0; i < 10; i += 1)
+{
+	print(i); print(" ");
+}
+
+print("\n");
 
 function afunc(this string)
 {

@@ -190,7 +190,7 @@ private:
 	// Declare variable
 	virtual void dispatch(AST_node_variable* pNode) override
 	{
-		mSymbols.add(std::string(pNode->identifier), visit_for_value(pNode->children[0]));
+		mSymbols.add(std::string(pNode->identifier), copy_value(visit_for_value(pNode->children[0])));
 	}
 
 	virtual void dispatch(AST_node_unary_op* pNode)
@@ -296,6 +296,29 @@ private:
 			pNode->children.back()->visit(this);
 	}
 
+	virtual void dispatch(AST_node_for* pNode) override
+	{
+		// Scope for the var statement
+		mSymbols.push_scope();
+
+		const bool empty_conditional = pNode->children[1]->is_empty();
+		for (
+			pNode->children[0]->visit(this);
+			empty_conditional || mCaster.cast<bool>(visit_for_value(pNode->children[1]));
+			pNode->children[2]->visit(this)
+			)
+		{
+			// Scope for each iteration
+			mSymbols.push_scope();
+
+			pNode->children[3]->visit(this);
+
+			mSymbols.pop_scope();
+		}
+
+		mSymbols.pop_scope();
+	}
+
 	virtual void dispatch(AST_node_function_declaration* pNode) override
 	{
 		callable func;
@@ -378,6 +401,22 @@ private:
 
 		const callable& c = overloader.find(pArgs, mCaster);
 		return c.function(pArgs);
+	}
+
+	value_type copy_value(const value_type& pVal)
+	{
+		if (pVal.is_arithmetic())
+		{
+			auto visitor = [](const auto& pVal) -> value_type
+			{
+				return pVal;
+			};
+			return detail::visit_arithmetic(pVal, visitor);
+		}
+		else
+		{
+			return call_function("copy", { pVal });
+		}
 	}
 
 	const type_info* get_type(const std::string_view& pStr) const

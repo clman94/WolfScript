@@ -38,6 +38,10 @@ int main()
 	{
 		return std::string();
 	}));
+	interpreter.add("copy", wolfscript::function([](const std::string& pStr)
+	{
+		return std::string(pStr);
+	}));
 	interpreter.add(wolfscript::object_behavior::add, wolfscript::function([](const std::string& l, const std::string& r)
 	{
 		return l + r;
