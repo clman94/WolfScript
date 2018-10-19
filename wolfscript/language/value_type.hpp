@@ -213,5 +213,11 @@ private:
 	std::shared_ptr<data> mData;
 };
 
+template <typename T>
+value_type const_value(T&& pVal)
+{
+	return value_type(std::forward<T>(pVal)).create_unique_reference(true);
+}
+
 
 } // namespace wolfscript

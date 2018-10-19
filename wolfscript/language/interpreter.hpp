@@ -13,7 +13,6 @@
 namespace wolfscript
 {
 
-
 class symbol_table
 {
 public:
@@ -370,12 +369,16 @@ private:
 			mSymbols.pop_scope();
 			return retval;
 		};
+
 		if (pNode->identifier.empty())
+		{
+			// Return the object for this anonymous function
 			mResult_value = func;
+		}
 		else
 		{
-			mSymbols.add(std::string(pNode->identifier), func);
-
+			// Add the function as its own constant variable
+			mSymbols.add(std::string(pNode->identifier), const_value(func));
 		}
 	}
 
