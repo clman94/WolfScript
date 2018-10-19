@@ -65,6 +65,9 @@ struct callable
 	value_type original_function;
 };
 
+// This stores all functions that are of the same identifier but with a
+// different set of parameters. It also will choose the best overload from its list
+// for a given set of parameter types.
 class callable_overloader
 {
 public:
@@ -93,8 +96,10 @@ public:
 			if (score > 0 && max_score < score)
 			{
 				result = c;
+				max_score = score;
 			}
 			else if (score > 0 && max_score == score)
+				// 2 functions are equally the best
 				throw exception::interpretor_error("Ambiguous call");
 		}
 		if (!result)
