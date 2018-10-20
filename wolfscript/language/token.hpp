@@ -28,6 +28,9 @@ enum class token_type
 	equ,
 	not_equ,
 
+	increment,
+	decrement,
+
 	assign,
 	add_assign,
 	sub_assign,
@@ -94,6 +97,9 @@ constexpr const char* token_name[static_cast<unsigned int>(token_type::count)] =
 	"Divide",
 	"Equal",
 	"Not Equal",
+
+	"Increment",
+	"Decrement",
 
 	"Assign",
 	"Add Assign",

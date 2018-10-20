@@ -52,13 +52,13 @@ str.myfunc();
 
 print("pie" + string("a"));
 
-for (var i = 0; i < 10; i += 1)
+for (var i = 0; i < 10; ++i)
 {
 	print(i + " ");
 }
 print("\n");
 
-for (var i = 0; i < 10; i += 1)
+for (var i = 0; i < 10; ++i)
 {
 	print(i+ " ");
 	if (i >= 3)
@@ -66,7 +66,7 @@ for (var i = 0; i < 10; i += 1)
 }
 print("\n");
 
-for (var i = 0; i < 10; i += 1)
+for (var i = 0; i < 10; ++i)
 {
 	if (i == 5)
 		continue;

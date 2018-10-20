@@ -389,12 +389,14 @@ private:
 	std::unique_ptr<AST_node> parse_factor()
 	{
 		if (mIter->type == token_type::add
-			|| mIter->type == token_type::sub)
+			|| mIter->type == token_type::sub
+			|| mIter->type == token_type::increment
+			|| mIter->type == token_type::decrement)
 		{
 			auto node = std::make_unique<AST_node_unary_op>();
 			node->related_token = *mIter;
 			node->type = mIter->type;
-			advance(); // Skip +/-
+			advance(); // Skip +/-/++/--
 			node->children.emplace_back(parse_factor());
 			return node;
 		}

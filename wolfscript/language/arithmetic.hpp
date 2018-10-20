@@ -146,24 +146,41 @@ value_type arithmetic_binary_operation(token_type pOp, const value_type& pL, con
 value_type arithmetic_unary_operation(token_type pOp, const value_type& pU)
 {
 	assert(pU.get_type_info().is_arithmetic);
-	auto lvisit = [pOp, &pU](const auto& pLtype) -> value_type
+	auto lvisit = [pOp, &pU](auto& pLtype) -> value_type
 	{
-		typedef decltype(pLtype) ltype_t;
-		if constexpr (!std::is_unsigned<std::decay<ltype_t>::type>::value)
+		using ltype_t = std::remove_reference_t<decltype(pLtype)>;
+		constexpr bool signed_value = std::is_signed<ltype_t>::value;
+
+		// Do nothing if it is a boolean
+		if constexpr (std::is_same_v<ltype_t, bool>)
+			return pLtype;
+		else
 		{
 			switch (pOp)
 			{
 			case token_type::add:
-				return +pLtype;
+				return pLtype;
 			case token_type::sub:
-				return -pLtype;
-			default:
-				throw exception::arithmetic_error("Unknown unary token");
+				if constexpr (signed_value)
+					return -pLtype;
+				else
+					return pLtype; // Return value unchanged if unsigned
 			}
-		}
-		else
-			return pLtype;
 
+			// TODO: Add helpful message for constant assignment
+			if constexpr (!std::is_const<ltype_t>::value)
+			{
+				switch (pOp)
+				{
+				case token_type::increment:
+					return (++pLtype, pU);
+				case token_type::decrement:
+					return (--pLtype, pU);
+				}
+			}
+
+			throw exception::arithmetic_error("Unknown unary token");
+		}
 	};
 	return detail::visit_arithmetic(pU, lvisit);
 }

@@ -264,6 +264,10 @@ token_array tokenize(std::string_view pView)
 			result.push_back(tokenize_char(pView, current_position, token_type::equ, 2));
 		else if (query_multichar(pView, "!="))
 			result.push_back(tokenize_char(pView, current_position, token_type::not_equ, 2));
+		else if (query_multichar(pView, "++"))
+			result.push_back(tokenize_char(pView, current_position, token_type::increment, 2));
+		else if (query_multichar(pView, "--"))
+			result.push_back(tokenize_char(pView, current_position, token_type::decrement, 2));
 		else if (query_multichar(pView, "+="))
 			result.push_back(tokenize_char(pView, current_position, token_type::add_assign, 2));
 		else if (query_multichar(pView, "-="))
