@@ -3,7 +3,6 @@
 #include "ast.hpp"
 #include "exception.hpp"
 #include <memory>
-#include <set>
 #include <iostream>
 
 namespace wolfscript

@@ -28,6 +28,7 @@ struct AST_node_continue;
 
 struct AST_visitor
 {
+	virtual ~AST_visitor() = default;
 	virtual void dispatch(AST_node_empty*) {}
 	virtual void dispatch(AST_node_block*) {}
 	virtual void dispatch(AST_node_variable*) {}
