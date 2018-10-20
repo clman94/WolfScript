@@ -142,7 +142,9 @@ constexpr const char* token_name[static_cast<unsigned int>(token_type::count)] =
 // Represents a position in text
 struct text_position
 {
+	// Starts at 1, -1 is an unknown position
 	int line;
+	// Starts at 0, -1 is an unknown position
 	int column;
 
 	constexpr text_position(int pLine = 1, int pColumn = 0) :
@@ -152,12 +154,19 @@ struct text_position
 	constexpr text_position(const text_position&) = default;
 	constexpr text_position& operator=(const text_position&) = default;
 
+	// Gets the line position as an index (starting at 0)
+	constexpr int line_index() const
+	{
+		return line - 1;
+	}
+
 	constexpr void new_line()
 	{
 		++line;
 		column = 0;
 	}
 
+	// Returns a string, "([line], [column])"
 	std::string to_string() const
 	{
 		return "(" + std::to_string(line) + ", " + std::to_string(column) + ")";
