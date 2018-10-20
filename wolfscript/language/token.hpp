@@ -152,6 +152,11 @@ struct text_position
 	constexpr text_position(const text_position&) = default;
 	constexpr text_position& operator=(const text_position&) = default;
 
+	constexpr void new_line()
+	{
+		++line;
+		column = 0;
+	}
 
 	std::string to_string() const
 	{

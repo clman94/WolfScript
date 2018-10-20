@@ -36,22 +36,18 @@ bool is_letter(char c)
 		(c >= 'A' && c <= 'Z');
 }
 
-std::string_view trim_whitespace_prefix(std::string_view pView, text_position& pPosition)
+void trim_whitespace_prefix(std::string_view& pView, text_position& pPosition)
 {
 	auto iter = std::find_if(pView.begin(), pView.end(), [&pPosition](char c)
 	{
 		if (c == '\n')
-		{
-			++pPosition.line;
-			pPosition.column = 0;
-		}
+			pPosition.new_line();
 		else
 			++pPosition.column;
 		return !is_whitespace(c);
 	});
 	pView.remove_prefix(std::distance(pView.begin(), iter));
 	--pPosition.column; // Do not include the last character which was not a whitespace
-	return pView;
 }
 
 token tokenize_identifier(std::string_view& pView, text_position& pPosition)
@@ -167,6 +163,7 @@ token tokenize_string(std::string_view& pView, text_position& pPosition)
 			++length; // Skip '\'
 			switch (pView[length])
 			{
+			case '0': result += '\0'; break;
 			case 'n': result += '\n'; break;
 			case 'r': result += '\r'; break;
 			case 't': result += '\t'; break;
@@ -220,7 +217,7 @@ void skip_multiline_comment(std::string_view& pView, text_position& pPosition)
 	for (; i != pView.end(); i++)
 	{
 		if (*i == '\n')
-			++pPosition.line;
+			pPosition.new_line();
 		++pPosition.column;
 		if (*i == '*')
 		{
@@ -228,7 +225,7 @@ void skip_multiline_comment(std::string_view& pView, text_position& pPosition)
 			if (peek != pView.end() && *peek == '/')
 			{
 				i += 2; // Skip */
-				++pPosition.column;
+				pPosition.column += 2;
 				break;
 			}
 		}
@@ -251,7 +248,7 @@ token_array tokenize(std::string_view pView)
 	token_array result;
 	text_position current_position;
 
-	pView = trim_whitespace_prefix(pView, current_position);
+	trim_whitespace_prefix(pView, current_position);
 	while (!pView.empty())
 	{
 		const char c = pView.front();
@@ -315,7 +312,7 @@ token_array tokenize(std::string_view pView)
 			result.push_back(tokenize_string(pView, current_position));
 		else
 			throw exception::tokenization_error("Unknown character", current_position);
-		pView = trim_whitespace_prefix(pView, current_position);
+		trim_whitespace_prefix(pView, current_position);
 	}
 	result.emplace_back(token_type::eof);
 	return result;
