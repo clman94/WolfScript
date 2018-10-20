@@ -18,7 +18,7 @@ function test_func(a)
 
 // #3
 // Specialized overload of a single string
-function test_func(a string)
+function test_func(const a string)
 {
 	print("#3 Overload ");
 	print(a + "\n");
@@ -78,3 +78,6 @@ function afunc(this string)
 }
 
 string("lol").afunc;
+
+
+

@@ -71,4 +71,11 @@ struct type_info
 	}
 };
 
+type_info const_type(const type_info& pType)
+{
+	type_info type = pType;
+	type.is_const = true;
+	return type;
+}
+
 } // namespace wolfscript

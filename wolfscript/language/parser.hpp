@@ -89,7 +89,7 @@ struct AST_node_block :
 struct AST_node_variable :
 	AST_node_impl<AST_node_variable>
 {
-	bool is_const;
+	bool is_const{ false };
 	std::string_view identifier;
 };
 
@@ -148,6 +148,7 @@ struct AST_node_function_declaration :
 	{
 		std::string_view identifier;
 		bool has_type{ false };
+		bool is_const{ false };
 		token type;
 	};
 	std::vector<param> parameters;
@@ -571,10 +572,15 @@ private:
 			throw exception::parse_error("Unexpected token", *mIter);
 	}
 
-	void parse_parameter(AST_node_function_declaration* pNode)
+	AST_node_function_declaration::param parse_parameter()
 	{
-		expect(token_type::identifier, "Expected identifier for parameter");
 		AST_node_function_declaration::param param;
+		if (mIter->type == token_type::kw_const)
+		{
+			param.is_const = true;
+			advance(); // Skip const
+		}
+		expect(token_type::identifier, "Expected identifier for parameter");
 		param.identifier = mIter->text;
 		advance(); // Skip identifier
 		if (mIter->type == token_type::identifier)
@@ -583,7 +589,7 @@ private:
 			param.type = *mIter;
 			advance(); // Skip type identifier
 		}
-		pNode->parameters.push_back(param);
+		return param;
 	}
 
 	std::unique_ptr<AST_node> parse_function_declaration(bool pAnonymous)
@@ -601,11 +607,11 @@ private:
 		advance(); // Skip (
 		if (mIter->type != token_type::r_parenthesis)
 		{
-			parse_parameter(node.get());
+			node->parameters.emplace_back(parse_parameter());
 			while (mIter->type == token_type::separator)
 			{
 				advance(); // Skip ,
-				parse_parameter(node.get());
+				node->parameters.emplace_back(parse_parameter());
 			}
 		}
 		expect(token_type::r_parenthesis, "Expected ) for function");

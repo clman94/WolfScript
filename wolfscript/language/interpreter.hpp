@@ -347,7 +347,10 @@ private:
 				auto type = get_type(i.type.text);
 				if (!type)
 					throw exception::interpretor_error("Invalid parameter type");
-				func.parameter_types.push_back(*type);
+				if (i.is_const)
+					func.parameter_types.push_back(const_type(*type));
+				else
+					func.parameter_types.push_back(*type);
 			}
 			else
 			{
