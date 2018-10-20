@@ -383,7 +383,6 @@ private:
 			}
 		}
 
-
 		func.function = [this, pNode](const std::vector<value_type>& pArgs)->value_type
 		{
 			mSymbols.push_scope();
