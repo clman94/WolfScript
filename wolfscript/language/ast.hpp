@@ -151,7 +151,9 @@ struct AST_node_function_call :
 struct AST_node_function_declaration :
 	AST_node_impl<AST_node_function_declaration>
 {
+	// This is empty if this is an anonymous function
 	std::string_view identifier;
+
 	struct param
 	{
 		std::string_view identifier;

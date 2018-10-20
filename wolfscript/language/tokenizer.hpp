@@ -168,7 +168,10 @@ token tokenize_string(std::string_view& pView, text_position& pPosition)
 			switch (pView[length])
 			{
 			case 'n': result += '\n'; break;
+			case 'r': result += '\r'; break;
 			case 't': result += '\t'; break;
+			case '\"': result += '\"'; break;
+			case '\\': result += '\\'; break;
 				// TODO: Add the rest of these escape sequences
 			default:
 				throw exception::tokenization_error("Invalid escape sequence", pPosition);
@@ -207,7 +210,6 @@ void skip_comment(std::string_view& pView, text_position& pPosition)
 			break;
 		++pPosition.column;
 	}
-	++pPosition.line;
 	pView.remove_prefix(std::distance(pView.begin(), i));
 }
 
