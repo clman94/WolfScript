@@ -164,7 +164,7 @@ constexpr text_position unknown_position(-1, -1);
 struct token
 {
 	// The representation of this token
-	token_type type;
+	token_type type{ token_type::unknown };
 	// Reference to the source for this token
 	std::string_view text;
 	// Value associated with string and arithmetic types
@@ -172,12 +172,15 @@ struct token
 	// Position in the source
 	text_position start_position;
 
-	token() :
-		type(token_type::unknown)
-	{}
+	token() = default;
+	token(const token&) = default;
+	token(token&&) = default;
 	token(token_type pType) :
 		type(pType)
 	{}
+
+	token& operator=(const token&) = default;
+	token& operator=(token&&) = default;
 };
 
 typedef std::vector<token> token_array;

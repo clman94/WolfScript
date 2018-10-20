@@ -302,7 +302,7 @@ private:
 			pNode->children[2]->visit(this)
 			)
 		{
-			// Scope for each iteration
+			// New scope for each iteration
 			mSymbols.push_scope();
 
 			pNode->children[3]->visit(this);
@@ -311,6 +311,7 @@ private:
 			// and it loops again like nothing happened
 			mControl_flags[ctrl_continue] = false;
 
+			// Break loop
 			if (mControl_flags[ctrl_break]
 				|| mControl_flags[ctrl_return])
 			{
@@ -322,6 +323,30 @@ private:
 		}
 
 		mSymbols.pop_scope();
+	}
+
+	virtual void dispatch(AST_node_while* pNode) override
+	{
+		while (mCaster.cast<bool>(visit_for_value(pNode->children[0])))
+		{
+			// New scope for each iteration
+			mSymbols.push_scope();
+
+			pNode->children[1]->visit(this);
+
+			// Loop again like nothing happened
+			mControl_flags[ctrl_continue] = false;
+
+			// Break loop
+			if (mControl_flags[ctrl_break]
+				|| mControl_flags[ctrl_return])
+			{
+				mControl_flags[ctrl_break] = false;
+				break;
+			}
+
+			mSymbols.pop_scope();
+		}
 	}
 
 	virtual void dispatch(AST_node_function_declaration* pNode) override

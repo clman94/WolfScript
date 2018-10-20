@@ -76,6 +76,7 @@ token tokenize_identifier(std::string_view& pView, text_position& pPosition)
 		{"if" , token_type::kw_if},
 		{"else" , token_type::kw_else},
 		{"for" , token_type::kw_for},
+		{"while" , token_type::kw_while},
 		{"function" , token_type::kw_function},
 		{"return" , token_type::kw_return},
 		{"break" , token_type::kw_break},

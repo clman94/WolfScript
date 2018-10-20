@@ -24,9 +24,22 @@ function test_func(const a string)
 	print(a + "\n");
 }
 
+{
+	print ("While: ");
+	const limit = 34;
+	var i = 0;
+	while (i < limit)
+	{
+		print (i + " ");
+		i += 1;
+	}
+	print("\n");
+}
 test_func(1, 1);      // #1
 test_func(34);        // #2
 test_func("eeeey\n"); // #3
+
+const str = "eeeyy";
 
 // Create empty string
 var str = string();
@@ -41,13 +54,13 @@ print("pie" + string("a"));
 
 for (var i = 0; i < 10; i += 1)
 {
-	print(i); print(" ");
+	print(i + " ");
 }
 print("\n");
 
 for (var i = 0; i < 10; i += 1)
 {
-	print(i); print(" ");
+	print(i+ " ");
 	if (i >= 3)
 		break;
 }
@@ -57,7 +70,7 @@ for (var i = 0; i < 10; i += 1)
 {
 	if (i == 5)
 		continue;
-	print(i); print(" ");
+	print(i+ " ");
 }
 print("\n");
 

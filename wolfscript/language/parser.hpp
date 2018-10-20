@@ -20,6 +20,7 @@ struct AST_node_identifier;
 struct AST_node_function_call;
 struct AST_node_if;
 struct AST_node_for;
+struct AST_node_while;
 struct AST_node_function_declaration;
 struct AST_node_return;
 struct AST_node_break;
@@ -38,6 +39,7 @@ struct AST_visitor
 	virtual void dispatch(AST_node_function_call*) {}
 	virtual void dispatch(AST_node_if*) {}
 	virtual void dispatch(AST_node_for*) {}
+	virtual void dispatch(AST_node_while*) {}
 	virtual void dispatch(AST_node_function_declaration*) {}
 	virtual void dispatch(AST_node_return*) {}
 	virtual void dispatch(AST_node_break*) {}
@@ -126,6 +128,11 @@ struct AST_node_if :
 
 struct AST_node_for :
 	AST_node_impl<AST_node_for>
+{
+};
+
+struct AST_node_while :
+	AST_node_impl<AST_node_while>
 {
 };
 
@@ -225,6 +232,10 @@ private:
 		else if (mIter->type == token_type::kw_for)
 		{
 			return parse_for_statement();
+		}
+		else if (mIter->type == token_type::kw_while)
+		{
+			return parse_while_statement();
 		}
 		else if (mIter->type == token_type::kw_break)
 		{
@@ -374,6 +385,25 @@ private:
 			node->children.emplace_back(parse_expression());
 		}
 		expect(token_type::r_parenthesis, "Expected )");
+		advance(); // Skip )
+
+		node->children.emplace_back(parse_statement());
+
+		return node;
+	}
+
+	std::unique_ptr<AST_node> parse_while_statement()
+	{
+		auto node = std::make_unique<AST_node_while>();
+
+		advance(); // Skip while
+		expect(token_type::l_parenthesis, "Expected ( for 'while' statement");
+		advance(); // Skip (
+		if (mIter->type == token_type::r_parenthesis)
+			throw exception::parse_error("Missing 'while' statement expression", *mIter);
+
+		node->children.emplace_back(parse_equality());
+		expect(token_type::r_parenthesis, "Missing ) for 'while' statement");
 		advance(); // Skip )
 
 		node->children.emplace_back(parse_statement());
@@ -752,6 +782,20 @@ public:
 		std::cout << get_indent() << "Body\n";
 		++mIndent;
 		pNode->children[3]->visit(this);
+		--mIndent;
+	}
+	virtual void dispatch(AST_node_while* pNode)
+	{
+		std::cout << get_indent() << "While Statement\n";
+
+		std::cout << get_indent() << "Conditional\n";
+		++mIndent;
+		pNode->children[0]->visit(this);
+		--mIndent;
+
+		std::cout << get_indent() << "Body\n";
+		++mIndent;
+		pNode->children[1]->visit(this);
 		--mIndent;
 	}
 
