@@ -409,6 +409,7 @@ private:
 			return node;
 		}
 		else if (mIter->type == token_type::integer ||
+			mIter->type == token_type::floating ||
 			mIter->type == token_type::string)
 		{
 			auto node = std::make_unique<AST_node_constant>();

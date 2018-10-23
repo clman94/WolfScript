@@ -1,4 +1,9 @@
 
+{
+	var f = 23.04;
+	print(f + "\n");
+}
+
 // #1
 // Specialized overload for 2 ints
 function test_func(a int, b int)
@@ -17,7 +22,8 @@ function test_func(a)
 }
 
 // #3
-// Specialized overload of a single string
+// Specialized overload of a single string.
+// Needs const so you can call it with a string literal.
 function test_func(const a string)
 {
 	print("#3 Overload ");
@@ -38,6 +44,8 @@ function test_func(const a string)
 test_func(1, 1);      // #1
 test_func(34);        // #2
 test_func("eeeey\n"); // #3
+
+
 
 const str = "eeeyy";
 
@@ -90,7 +98,8 @@ function afunc(this string)
 	return print("hi " + this + "\n");
 }
 
-string("lol").afunc;
+var delta = 34;
 
+string("lol").afunc;
 
 

@@ -82,7 +82,7 @@ token tokenize_identifier(std::string_view& pView, text_position& pPosition)
 		t.type = keywords[t.text];
 	else
 		t.type = token_type::identifier;
-	t.start_position = pPosition;
+	t.position = pPosition;
 
 	pPosition.column += length;
 	pView.remove_prefix(length);
@@ -103,12 +103,6 @@ token tokenize_number(std::string_view& pView, text_position& pPosition)
 			is_float = true;
 			++length;
 		}
-		else if (i == 'f')
-		{
-			is_float = true;
-			++length;
-			break;
-		}
 		else if (is_letter(i))
 			throw exception::tokenization_error("This identifier should not start with a digit", pPosition);
 		else
@@ -117,7 +111,7 @@ token tokenize_number(std::string_view& pView, text_position& pPosition)
 
 	token t;
 	t.text = pView.substr(0, length);
-	t.start_position = pPosition;
+	t.position = pPosition;
 	if (is_float)
 	{
 		t.type = token_type::floating;
@@ -139,7 +133,7 @@ token tokenize_char(std::string_view& pView, text_position& pPosition, token_typ
 	token t;
 	t.text = pView.substr(0, pLength);
 	t.type = pType;
-	t.start_position = pPosition;
+	t.position = pPosition;
 
 	pPosition.column += pLength;
 	pView.remove_prefix(pLength);
@@ -182,7 +176,7 @@ token tokenize_string(std::string_view& pView, text_position& pPosition)
 	if (length > 0)
 		t.text = pView.substr(0, length - 1);
 	t.type = token_type::string;
-	t.start_position = pPosition;
+	t.position = pPosition;
 	t.value = std::move(result);
 
 	pPosition.column += length + 1;

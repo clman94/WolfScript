@@ -16,6 +16,26 @@ namespace wolfscript
 class symbol_table
 {
 public:
+	// RAII-based pushing and popping of scopes.
+	class scope_push_pop
+	{
+	public:
+		scope_push_pop(symbol_table& pTable)
+		{
+			mTable = &pTable;
+			mTable->push_scope();
+		}
+
+		~scope_push_pop()
+		{
+			mTable->pop_scope();
+		}
+
+	private:
+		symbol_table* mTable;
+	};
+
+public:
 	symbol_table()
 	{
 		mScope_stack.emplace_front();
@@ -51,6 +71,7 @@ public:
 					overloader.add(iter->second);
 					iter->second = overloader;
 				}
+				return iter->second;
 			}
 		}
 		else
@@ -166,10 +187,24 @@ private:
 
 	virtual void dispatch(AST_node_block* pNode) override
 	{
-		mSymbols.push_scope();
+		symbol_table::scope_push_pop scope(mSymbols);
 		for (const auto& i : pNode->children)
 		{
-			i->visit(this);
+			try
+			{
+				i->visit(this);
+			}
+			catch (exception::interpretor_error& e)
+			{
+				// Report the position of the error if not already.
+				if (e.position == unknown_position)
+					e.position = i->related_token.position;
+				throw;
+			}
+			catch (...)
+			{
+				throw;
+			}
 
 			// The return request breaks all scopes.
 			// The result value is retained because it contains the return value.
@@ -178,7 +213,6 @@ private:
 			// Clear the result after each line.
 			mResult_value.clear();
 		}
-		mSymbols.pop_scope();
 	}
 
 	// Declare variable
@@ -219,6 +253,9 @@ private:
 		case token_type::integer:
 			mResult_value = std::cref(std::get<int>(pNode->related_token.value));
 			break;
+		case token_type::floating:
+			mResult_value = std::cref(std::get<float>(pNode->related_token.value));
+			break;
 		case token_type::string:
 			mResult_value = std::cref(std::get<std::string>(pNode->related_token.value));
 			break;
@@ -248,17 +285,24 @@ private:
 			arg_types.push_back(args.back().get_type_info());
 		}
 
+		const callable* func = nullptr;
 		if (auto overloader = c.get<const callable_overloader>())
 		{
-			auto& func = overloader->find(arg_types, mCaster);
-			mResult_value = func.function(args);
+			func = &overloader->find(arg_types, mCaster);
 		}
-		else if (auto func = c.get<const callable>())
+		else if (func = c.get<const callable>())
 		{
 			if (!func->match(arg_types, mCaster))
 				throw exception::interpretor_error("Cannot find function");
 			mResult_value = func->function(args);
 		}
+		else
+		{
+			throw exception::interpretor_error("Not a function");
+		}
+
+		cast_arguments(args, func->parameter_types);
+		mResult_value = func->function(args);
 	}
 
 	virtual void dispatch(AST_node_if* pNode) override
@@ -292,8 +336,7 @@ private:
 
 	virtual void dispatch(AST_node_for* pNode) override
 	{
-		// Scope for the var statement
-		mSymbols.push_scope();
+		symbol_table::scope_push_pop var_scope(mSymbols);
 
 		const bool empty_conditional = pNode->children[1]->is_empty();
 		for (
@@ -302,8 +345,7 @@ private:
 			pNode->children[2]->visit(this)
 			)
 		{
-			// New scope for each iteration
-			mSymbols.push_scope();
+			symbol_table::scope_push_pop loop_scope(mSymbols);
 
 			pNode->children[3]->visit(this);
 
@@ -318,19 +360,14 @@ private:
 				mControl_flags[ctrl_break] = false;
 				break;
 			}
-
-			mSymbols.pop_scope();
 		}
-
-		mSymbols.pop_scope();
 	}
 
 	virtual void dispatch(AST_node_while* pNode) override
 	{
 		while (mCaster.cast<bool>(visit_for_value(pNode->children[0])))
 		{
-			// New scope for each iteration
-			mSymbols.push_scope();
+			symbol_table::scope_push_pop loop_scope(mSymbols);
 
 			pNode->children[1]->visit(this);
 
@@ -344,8 +381,6 @@ private:
 				mControl_flags[ctrl_break] = false;
 				break;
 			}
-
-			mSymbols.pop_scope();
 		}
 	}
 
@@ -385,15 +420,33 @@ private:
 
 		func.function = [this, pNode](const std::vector<value_type>& pArgs)->value_type
 		{
-			mSymbols.push_scope();
+			symbol_table::scope_push_pop scope(mSymbols);
+
 			// Add the parameters to the scope
 			for (std::size_t i = 0; i < pArgs.size(); i++)
 				mSymbols.add(std::string(pNode->parameters[i].identifier), pArgs[i]);
 			
 			// Interpret the functions body nodes
-			value_type retval = visit_for_value(pNode->children[0]);
+			value_type retval;
+			try
+			{
+				retval = visit_for_value(pNode->children[0]);
+			}
+			catch (exception::interpretor_error& e)
+			{
+				if (pNode->identifier.empty())
+					e.stack.push_back("Anonymouns function");
+				else
+					e.stack.push_back(std::string(pNode->identifier));
+				throw;
+			}
+			catch (...)
+			{
+				throw;
+			}
+
 			mControl_flags.reset();
-			mSymbols.pop_scope();
+
 			return retval;
 		};
 
@@ -426,11 +479,11 @@ private:
 	}
 
 private:
-	value_type call_function(const std::string& pName, const arg_list& pArgs)
+	callable_overloader find_functions(const std::string& pName)
 	{
 		auto matches = mSymbols.get_all_matches(pName);
 		if (matches.empty())
-			throw exception::interpretor_error("No function matches");
+			throw exception::interpretor_error("No function with name \"" + pName + "\"");
 
 		callable_overloader overloader;
 		for (auto i : matches)
@@ -444,8 +497,20 @@ private:
 				overloader.add(*other);
 			}
 		}
+		return overloader;
+	}
 
+	void cast_arguments(arg_list& pArgs, const std::vector<type_info>& pTypes) const
+	{
+		for (std::size_t i = 0; i < pTypes.size(); ++i)
+			pArgs[i] = mCaster.cast(pTypes[i], pArgs[i]);
+	}
+
+	value_type call_function(const std::string& pName, arg_list pArgs)
+	{
+		callable_overloader overloader = find_functions(pName);
 		const callable& c = overloader.find(pArgs, mCaster);
+		cast_arguments(pArgs, c.parameter_types);
 		return c.function(pArgs);
 	}
 

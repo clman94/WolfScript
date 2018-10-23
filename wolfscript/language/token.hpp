@@ -160,6 +160,11 @@ struct text_position
 	constexpr text_position(const text_position&) = default;
 	constexpr text_position& operator=(const text_position&) = default;
 
+	constexpr bool operator==(const text_position& pOther) const
+	{
+		return line == pOther.line && column == pOther.column;
+	}
+
 	// Gets the line position as an index (starting at 0)
 	constexpr int line_index() const
 	{
@@ -190,7 +195,7 @@ struct token
 	// Value associated with string and arithmetic types
 	std::variant<int, float, std::string> value;
 	// Position in the source
-	text_position start_position;
+	text_position position;
 
 	token() = default;
 	token(const token&) = default;
