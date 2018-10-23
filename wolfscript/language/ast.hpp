@@ -56,6 +56,7 @@ struct AST_node
 	virtual bool is_empty() const = 0;
 
 	std::vector<std::unique_ptr<AST_node>> children;
+	token related_token;
 };
 
 template<class T>
@@ -72,8 +73,6 @@ struct AST_node_impl :
 	{
 		return false;
 	}
-
-	token related_token;
 };
 
 struct AST_node_empty :
@@ -363,7 +362,6 @@ private:
 
 	int mIndent{ 0 };
 };
-
 
 class AST_walker :
 	public AST_visitor
