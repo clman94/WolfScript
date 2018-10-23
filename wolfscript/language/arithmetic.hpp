@@ -152,8 +152,10 @@ value_type arithmetic_unary_operation(token_type pOp, const value_type& pU)
 		constexpr bool signed_value = std::is_signed<ltype_t>::value;
 
 		// Do nothing if it is a boolean
-		if constexpr (std::is_same_v<ltype_t, bool>)
+		if constexpr (std::is_same_v<std::decay_t<ltype_t>, bool>)
+		{
 			return pLtype;
+		}
 		else
 		{
 			switch (pOp)
@@ -167,8 +169,16 @@ value_type arithmetic_unary_operation(token_type pOp, const value_type& pU)
 					return pLtype; // Return value unchanged if unsigned
 			}
 
-			// TODO: Add helpful message for constant assignment
-			if constexpr (!std::is_const<ltype_t>::value)
+			if constexpr (std::is_const_v<ltype_t>)
+			{
+				switch (pOp)
+				{
+				case token_type::increment:
+				case token_type::decrement:
+					throw exception::arithmetic_error("Cannot modify const variable");
+				}
+			}
+			else
 			{
 				switch (pOp)
 				{
