@@ -327,7 +327,7 @@ private:
 
 	std::unique_ptr<AST_node> parse_multiplicative_expression()
 	{
-		return parse_binary_expression({ token_type::mul, token_type::div }, &parser::parse_postfix_expression);
+		return parse_binary_expression({ token_type::mul, token_type::div, token_type::mod }, &parser::parse_postfix_expression);
 	}
 
 	std::unique_ptr<AST_node> parse_postfix_expression()

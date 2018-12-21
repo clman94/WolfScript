@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <sstream>
+#include <chrono>
 
 static std::string load_file_as_string(const std::string& pPath)
 {
@@ -29,6 +30,7 @@ int main()
 
 	wolfscript::interpreter interpreter;
 	interpreter.add_type<int>("int");
+	interpreter.add_type<float>("float");
 	interpreter.add_type<std::string>("string");
 	interpreter.add("string", wolfscript::function([](const std::string& pStr)
 	{
@@ -73,5 +75,13 @@ int main()
 	{
 		std::cout << pInt;
 	}));
+	
+	auto start = std::chrono::high_resolution_clock::now();
+	interpreter.add("get_time", wolfscript::function([&]()
+	{
+		return std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - start).count();
+	}));
+
 	interpreter.interpret(ast);
+	//interpreter.call_function("mainloop", {});
 }

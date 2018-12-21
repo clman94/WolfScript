@@ -4,6 +4,8 @@
 #include "value_type.hpp"
 #include "exception.hpp"
 
+#include <cmath>
+
 namespace wolfscript
 {
 
@@ -22,6 +24,16 @@ struct arithmetic_error :
 
 namespace detail
 {
+
+template <typename Tx, typename Ty>
+auto mod_impl(const Tx& x, const Ty& y)
+{
+	using ret_Type = std::common_type_t<Tx, Ty>;
+	if  constexpr (std::is_floating_point_v<ret_Type>)
+		return std::fmod(static_cast<ret_Type>(x), static_cast<ret_Type>(y));
+	else
+		return static_cast<ret_Type>(x) % static_cast<ret_Type>(y);
+}
 
 template<typename Tl, typename Tr>
 value_type arithmetic_binary_operation_impl(token_type pOp, const value_type& pL, Tl& pLval, Tr& pRval)
@@ -51,6 +63,7 @@ value_type arithmetic_binary_operation_impl(token_type pOp, const value_type& pL
 				throw exception::arithmetic_error("Divide by 0");
 			return pLval / r_casted;
 			break;
+		case token_type::mod: return mod_impl(pLval, r_casted); break;
 
 		case token_type::less_than: return pLval < r_casted; break;
 		case token_type::less_than_equ_to: return pLval <= r_casted; break;

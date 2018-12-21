@@ -363,6 +363,7 @@ private:
 	int mIndent{ 0 };
 };
 
+// "Walks" through every ast node
 class AST_walker :
 	public AST_visitor
 {

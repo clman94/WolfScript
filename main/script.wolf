@@ -6,7 +6,7 @@
 
 // #1
 // Specialized overload for 2 ints
-function test_func(a int, b int)
+function test_func(const a &int, b int)
 {
 	print("#1 Overload ");
 	print(a + b + "\n");
@@ -21,6 +21,14 @@ function test_func(a)
 	print(a + "\n");
 }
 
+var speed = 23.04;
+
+var position ()= speed*get_time();
+
+function update{
+	mysprite.set_position(position, 0);
+}
+
 // #3
 // Specialized overload of a single string.
 // Needs const so you can call it with a string literal.
@@ -29,6 +37,9 @@ function test_func(const a string)
 	print("#3 Overload ");
 	print(a + "\n");
 }
+test_func(1, 1);      // #1
+test_func(34);        // #2
+test_func("eeeey\n"); // #3
 
 {
 	print ("While: ");
@@ -41,9 +52,6 @@ function test_func(const a string)
 	}
 	print("\n");
 }
-test_func(1, 1);      // #1
-test_func(34);        // #2
-test_func("eeeey\n"); // #3
 
 
 
@@ -55,7 +63,6 @@ var str = string();
 str = "eeey";
 // Method calling
 str.myfunc();
-
 "pie".myfunc();
 
 print("pie" + string("a"));
@@ -93,13 +100,29 @@ print("\n");
 	print(for_iters + "\n"); // Should be 11
 }
 
-function afunc(this string)
+function afunc(const this string) string
 {
 	return print("hi " + this + "\n");
 }
+"lol".afunc;
 
 var delta = 34;
 
-string("lol").afunc;
+var last = get_time();
 
+function mainloop()
+{
+	print(get_time() - last);
+	last = get_time();
+}
 
+/*{
+	var a = "asf";
+
+	function pie(thing)
+	{
+		print(thing + 34);
+	}
+
+	pie(a + 24);
+}*/

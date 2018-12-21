@@ -294,6 +294,8 @@ token_array tokenize(std::string_view pView)
 			result.push_back(tokenize_char(pView, current_position, token_type::mul));
 		else if (c == '/')
 			result.push_back(tokenize_char(pView, current_position, token_type::div));
+		else if (c == '%')
+			result.push_back(tokenize_char(pView, current_position, token_type::mod));
 		else if (c == '=')
 			result.push_back(tokenize_char(pView, current_position, token_type::assign));
 		else if (c == ';')

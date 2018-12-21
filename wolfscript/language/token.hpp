@@ -25,6 +25,8 @@ enum class token_type
 	sub,
 	mul,
 	div,
+	mod,
+
 	equ,
 	not_equ,
 
@@ -95,6 +97,8 @@ constexpr const char* token_name[static_cast<unsigned int>(token_type::count)] =
 	"Subtract",
 	"Multiply",
 	"Divide",
+	"Modulus",
+
 	"Equal",
 	"Not Equal",
 
