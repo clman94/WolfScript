@@ -246,4 +246,48 @@ callable function(T&& pFunc)
 	return detail::make_proxy_function(std::forward<T>(pFunc), sig{});
 }
 
+namespace detail
+{
+
+template <typename Tfuncsig, bool pIs_member, bool pIs_const, typename Tret, typename...Tparams, std::size_t...pParams_index>
+std::function<Tfuncsig> make_function(
+	const callable& pCallable,
+	const cast_list& pCaster,
+	function_signature<Tret, function_params<Tparams...>, pIs_member, pIs_const> pSig,
+	std::index_sequence<pParams_index...>)
+{
+	return [pCallable, &pCaster](Tparams...pArgs) -> Tret
+	{
+		return pCallable.function({ pCaster.cast(pCallable.parameter_types[pParams_index], pArgs)... });
+	};
+}
+
+template <typename Tfuncsig, bool pIs_member, bool pIs_const, typename Tret, typename...Tparams>
+std::function<Tfuncsig> make_function(
+	const callable& pCallable,
+	const cast_list& pCaster,
+	function_signature<Tret, function_params<Tparams...>, pIs_member, pIs_const> pSig)
+{
+	return make_function(pCallable, pCaster, pSig, std::index_sequence_for<Tparams...>{});
+}
+
+} // namespace detail
+
+template <typename T>
+std::function<T> from_callable(const callable& pCallable, const cast_list& pCaster)
+{
+	// Function was originally constructed with this signature
+	if (auto orig = pCallable.original_function.get<std::function<T>>())
+		return *orig;
+
+	// Check types
+	if (!pCallable.match(types.param_types, pCaster))
+		return{};
+
+	// Create a proxy function
+	using traits = detail::function_signature_traits<T*>;
+	auto types = detail::function_signature_types::create(traits{});
+	return detail::make_function<T>(pCallable, pCaster, traits::type);
+}
+
 } // namespace wolfscript
