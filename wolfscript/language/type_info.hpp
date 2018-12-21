@@ -23,6 +23,8 @@ struct type_info
 	// True when the type is an arithmetic (bool, int, float, etcetera...)
 	bool is_arithmetic{ false };
 
+	bool is_void{ false };
+
 	const std::type_info* stdtypeinfo{ &typeid(void) };
 
 	constexpr type_info() = default;
@@ -30,11 +32,13 @@ struct type_info
 		bool pIs_reference,
 		bool pIs_pointer,
 		bool pIs_arithmic,
+		bool pIs_void,
 		const std::type_info* pType) :
 		is_const(pIs_const),
 		is_reference(pIs_reference),
 		is_pointer(pIs_pointer),
 		is_arithmetic(pIs_arithmic),
+		is_void(pIs_void),
 		stdtypeinfo(pType)
 	{}
 	constexpr type_info(const type_info&) = default;
@@ -66,6 +70,7 @@ struct type_info
 			std::is_reference<T>::value,
 			std::is_pointer<T>::value,
 			std::is_arithmetic<type_bare>::value,
+			std::is_void_v<type_bare>,
 			&typeid(type_bare)
 		);
 	}

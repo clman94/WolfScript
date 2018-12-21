@@ -157,6 +157,11 @@ public:
 		return *this;
 	}
 
+	bool is_void() const
+	{
+		return mData->mType_info.is_void;
+	}
+
 	bool is_const() const
 	{
 		return mData->mType_info.is_const;
